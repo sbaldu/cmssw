@@ -19,7 +19,7 @@ class MyModuleSum(torch.nn.Module):
           return A+B
 
       
-module = MyModuleSum()
+model = MyModuleSum()
 model(torch.ones(1<<16), torch.ones(1<<16))
 
 tm = torch.jit.trace(model.eval(), [torch.ones(1<<16), torch.ones(1<<16)])
