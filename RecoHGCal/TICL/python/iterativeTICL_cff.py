@@ -42,8 +42,12 @@ ticl_v5.toModify(pfTICL, ticlCandidateSrc = cms.InputTag('ticlCandidate'), isTIC
 
 ticlPFTask = cms.Task(pfTICL)
 
+ticlCluesteringAlpaka = cms.EDProducer("alpaka_serial_sync::TrackstersProducerAlpaka")
+ticlCluesteringAlpakaTask = cms.Task(ticlCluesteringAlpaka)
 ticlIterationsTask = cms.Task(
-    ticlCLUE3DHighStepTask
+    # ticlCluesteringHighStepTask,
+    ticlCLUE3DHighStepTask,
+    ticlCluesteringAlpakaTask
 )
 
 ticl_v5.toModify(ticlIterationsTask , func=lambda x : x.add(ticlPassthroughStepTask))
@@ -65,7 +69,7 @@ ticlIterLabels = ["CLUE3DHigh"]
 '''
 
 ticlTracksterMergeTask = cms.Task(ticlTrackstersMerge)
-ticlTracksterLinksTask = cms.Task(ticlTracksterLinks, ticlSuperclusteringTask) 
+ticlTracksterLinksTask = cms.Task(ticlTracksterLinks, ticlSuperclusteringTask)
 
 
 mergeTICLTask = cms.Task(ticlLayerTileTask
