@@ -66,7 +66,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       // size_t device_id = 0;
       // const auto dev_acc = alpaka::getDevByIdx<Acc1D>(device_id);
       // Queue queue_(dev_acc);
-      CLUEsteringAlgo<Ndim> algo_;
+      CLUEsteringAlgo<Acc1D,Ndim> algo_(0.5,0.1,1,100,event.queue());
 
       // host and device points
       Points<Ndim> h_points(m_coords, m_weight);
