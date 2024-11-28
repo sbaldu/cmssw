@@ -16,6 +16,13 @@ using namespace cms::alpakatools;
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
+  constexpr int32_t max_followers{100};
+  constexpr int32_t max_seeds{100};
+  constexpr int32_t reserve{1000000};
+
+  template <uint8_t Ndim>
+  using PointsView = typename PointsAlpaka<Ndim>::PointsAlpakaView;
+
   class KernelResetTiles {
   public:
     template <typename TAcc, uint8_t Ndim>
@@ -23,14 +30,41 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                                   TilesAlpaka<Ndim>* tiles,
                                   uint32_t nTiles,
                                   uint32_t nPerDim) const {                                    
-      std::cout<<"////////////////KERNEL LAUNCHED////////////////"<<std::endl;
+      std::cout<<"////////////////KernelResetTiles LAUNCHED////////////////"<<std::endl;
       if (once_per_grid(acc)) {
         tiles->resizeTiles(nTiles, nPerDim);
       }
 
-      for (int32_t i : uniform_elements(acc, nTiles)) {
+      for (uint32_t i : uniform_elements(acc, nTiles)) {
         tiles->clear(i);
       }
+    }
+  };
+
+  class KernelResetFollowers {
+  public:
+    template <typename TAcc>
+    ALPAKA_FN_ACC void operator()(const TAcc& acc,
+                                  VecArray<int, max_followers>* d_followers,
+                                  uint32_t n_points) const {      
+      std::cout<<"////////////////KernelResetFollowers LAUNCHED////////////////"<<std::endl;    
+      for (uint32_t i : uniform_elements(acc, n_points)) {
+        d_followers[i].reset();
+      }      
+    }
+  };
+
+  class KernelFillTiles {
+  public:
+    template <typename TAcc, uint8_t Ndim>
+    ALPAKA_FN_ACC void operator()(const TAcc& acc,
+                                  PointsView<Ndim>* points,
+                                  TilesAlpaka<Ndim>* tiles,
+                                  uint32_t n_points) const {
+      std::cout<<"////////////////KernelFillTiles LAUNCHED////////////////"<<std::endl;
+      for (uint32_t i : uniform_elements(acc, n_points)) {
+        tiles->fill(acc, points->coords[i], i);
+      }           
     }
   };
 
@@ -44,10 +78,20 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     }
 
     TilesAlpaka<Ndim>* m_tiles;
+    VecArray<int32_t, max_seeds>* m_seeds;
+    VecArray<int32_t, max_followers>* m_followers;
 
     void make_clusters(Points<Ndim>& h_points, PointsAlpaka<Ndim>& d_points, Queue queue_, std::size_t block_size) {
     std::cout<<"*****************MAKING CLUSTERS IN ALPAKA***************"<<std::endl;
     setup(h_points, d_points, queue_, block_size);
+
+    const Idx grid_size = cms::alpakatools::divide_up_by(h_points.n, block_size);
+    auto working_div = cms::alpakatools::make_workdiv<Acc1D>(grid_size, block_size);
+    alpaka::enqueue(
+        queue_,
+        alpaka::createTaskKernel<Acc1D>(
+            working_div, KernelFillTiles{}, d_points.view(), m_tiles, h_points.n));
+
     }
 
   private:
@@ -59,13 +103,19 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
     // Buffers
     std::optional<cms::alpakatools::device_buffer<Device, TilesAlpaka<Ndim>>> d_tiles;
+    std::optional<cms::alpakatools::device_buffer<Device, cms::alpakatools::VecArray<int32_t, max_seeds>>> d_seeds;
+    std::optional<cms::alpakatools::device_buffer<Device, cms::alpakatools::VecArray<int32_t, max_followers>[]>> d_followers;
 
     // Private methods
     void init_device(Queue queue_) {
       d_tiles = cms::alpakatools::make_device_buffer<TilesAlpaka<Ndim>>(queue_);
+      d_seeds = cms::alpakatools::make_device_buffer<cms::alpakatools::VecArray<int32_t, max_seeds>>(queue_);
+      d_followers = cms::alpakatools::make_device_buffer<cms::alpakatools::VecArray<int32_t, max_followers>[]>(queue_, reserve);
 
       // Copy to the public pointers
       m_tiles = (*d_tiles).data();
+      m_seeds = (*d_seeds).data();
+      m_followers = (*d_followers).data();
     }
 
     void setup(const Points<Ndim>& h_points,
@@ -98,6 +148,23 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
           queue_,
           alpaka::createTaskKernel<Acc1D>(
               tiles_working_div, KernelResetTiles{}, m_tiles, nTiles, nPerDim));
+
+      alpaka::memcpy(
+          queue_,
+          d_points.coords,
+          cms::alpakatools::make_host_view(h_points.m_coords.data(), h_points.n));
+      alpaka::memcpy(
+          queue_,
+          d_points.weight,
+          cms::alpakatools::make_host_view(h_points.m_weight.data(), h_points.n));
+      alpaka::memset(queue_, (*d_seeds), 0x00);
+
+      // Define the working division
+      const Idx grid_size = cms::alpakatools::divide_up_by(h_points.n, block_size);
+      const auto working_div = cms::alpakatools::make_workdiv<Acc1D>(grid_size, block_size);
+      alpaka::enqueue(queue_,
+                      alpaka::createTaskKernel<Acc1D>(
+                          working_div, KernelResetFollowers{}, m_followers, h_points.n));
     }
 
     // Construction of the tiles
