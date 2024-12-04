@@ -33,12 +33,6 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       descriptions.addWithDefaultLabel(desc);
     }
 
-    // void fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
-    //   edm::ParameterSetDescription desc;
-    //   desc.add<edm::InputTag>("layer_clusters", edm::InputTag("hgcalMergeLayerClusters"));
-    //   // descriptions.add("trackstersProducerAlpaka", desc);
-    // }
-
     void produce(edm::StreamID sid, device::Event& event, device::EventSetup const&) const override {
       const auto& layerClusters = event.get(clusters_token_);
       const int Ndim = 3;
@@ -63,9 +57,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         m_coords.push_back(lc_coords);
         m_weight.push_back(lc_energy);
       }
-      // size_t device_id = 0;
-      // const auto dev_acc = alpaka::getDevByIdx<Acc1D>(device_id);
-      // Queue queue_(dev_acc);
+
       CLUEsteringAlgo<Acc1D,Ndim> algo_(0.5,0.1,1,100,event.queue());
 
       // host and device points
@@ -74,13 +66,6 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
       algo_.make_clusters(h_points, d_points, event.queue(), 256);
 
-      // alpaka::memcpy(
-      //     event.queue(), d_points.coords, cms::alpakatools::make_host_view(m_coords.data(), m_coords.size()));
-
-      // alpaka::memcpy(
-      //     event.queue(), d_points.weight, cms::alpakatools::make_host_view(m_weight.data(), m_weight.size()));
-
-      // algo_.printHelloWorld();
     }
 
   private:

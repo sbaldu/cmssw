@@ -29,8 +29,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     ALPAKA_FN_ACC void operator()(TAcc const& acc,
                                   TilesAlpaka<Ndim>* tiles,
                                   uint32_t nTiles,
-                                  uint32_t nPerDim) const {                                    
-      std::cout<<"////////////////KernelResetTiles LAUNCHED////////////////"<<std::endl;
+                                  uint32_t nPerDim) const {
+
       if (once_per_grid(acc)) {
         tiles->resizeTiles(nTiles, nPerDim);
       }
@@ -46,11 +46,11 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     template <typename TAcc>
     ALPAKA_FN_ACC void operator()(const TAcc& acc,
                                   VecArray<int, max_followers>* d_followers,
-                                  uint32_t n_points) const {      
-      std::cout<<"////////////////KernelResetFollowers LAUNCHED////////////////"<<std::endl;    
+                                  uint32_t n_points) const {
+
       for (uint32_t i : uniform_elements(acc, n_points)) {
         d_followers[i].reset();
-      }      
+      }
     }
   };
 
@@ -61,10 +61,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                                   PointsView<Ndim>* points,
                                   TilesAlpaka<Ndim>* tiles,
                                   uint32_t n_points) const {
-      std::cout<<"////////////////KernelFillTiles LAUNCHED////////////////"<<std::endl;
+
       for (uint32_t i : uniform_elements(acc, n_points)) {
         tiles->fill(acc, points->coords[i], i);
-      }           
+      }
     }
   };
 
@@ -82,7 +82,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     VecArray<int32_t, max_followers>* m_followers;
 
     void make_clusters(Points<Ndim>& h_points, PointsAlpaka<Ndim>& d_points, Queue queue_, std::size_t block_size) {
-    std::cout<<"*****************MAKING CLUSTERS IN ALPAKA***************"<<std::endl;
+
     setup(h_points, d_points, queue_, block_size);
 
     const Idx grid_size = cms::alpakatools::divide_up_by(h_points.n, block_size);
@@ -99,7 +99,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     float rhoc_;
     float dm_;
     // average number of points found in a tile
-    int pointsPerTile_;      
+    int pointsPerTile_;
 
     // Buffers
     std::optional<cms::alpakatools::device_buffer<Device, TilesAlpaka<Ndim>>> d_tiles;
@@ -194,12 +194,6 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       }
     }
 
-  //   void make_clusters(Points<Ndim>& h_points, PointsAlpaka<Ndim>& d_points, Queue queue_, std::size_t block_size) {
-  //   std::cout << "************Inside make_clusters***************" << std::endl;
-
-  //   alpaka::memcpy(queue_, d_points.coords, cms::alpakatools::make_host_view(h_points.m_coords.data(), h_points.n));
-  //   alpaka::memcpy(queue_, d_points.weight, cms::alpakatools::make_host_view(h_points.m_weight.data(), h_points.n));
-  // }
   };
 
 }  // namespace ALPAKA_ACCELERATOR_NAMESPACE
