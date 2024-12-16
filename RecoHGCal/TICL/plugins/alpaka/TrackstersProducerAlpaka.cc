@@ -17,6 +17,7 @@
 #include "PointsAlpaka.h"
 #include "Points.h"
 #include "TilesAlpaka.h"
+#include "ConvolutionalKernel.h"
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
@@ -58,14 +59,14 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         m_weight.push_back(lc_energy);
       }
 
-      CLUEsteringAlgo<Acc1D,Ndim> algo_(0.5,0.1,1,100,event.queue());
+      CLUEsteringAlgo<Acc1D, Ndim> algo_(0.5, 0.1, 1, 100, event.queue());
 
       // host and device points
       Points<Ndim> h_points(m_coords, m_weight);
       PointsAlpaka<Ndim> d_points(event.queue(), m_weight.size());
+	  FlatKernel kernel(0.5f);
 
-      algo_.make_clusters(h_points, d_points, event.queue(), 256);
-
+      algo_.make_clusters(h_points, d_points, kernel, event.queue(), 256);
     }
 
   private:
