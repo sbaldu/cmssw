@@ -262,7 +262,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                                   VecArray<int, max_followers>* followers,
                                   PointsView<Ndim>* dev_points) const {
       const auto& seeds_0 = *seeds;
-      const auto n_seeds = seeds_0.size()};
+      const auto n_seeds = seeds_0.size();
       for (uint32_t idx_cls : uniform_elements(acc, n_seeds)) {
         int local_stack[256] = {-1};
         int local_stack_size = 0;
