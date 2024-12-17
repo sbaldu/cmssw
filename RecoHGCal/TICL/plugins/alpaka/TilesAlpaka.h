@@ -94,6 +94,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                                         VecArray<VecArray<uint32_t, 2>, Ndim>* search_box) {
       for (int dim{}; dim != Ndim; ++dim) {
         VecArray<uint32_t, 2> dim_sb;
+        dim_sb.reset();
         dim_sb.push_back_unsafe(getBin(acc, sb_extremes[dim][0], dim));
         dim_sb.push_back_unsafe(getBin(acc, sb_extremes[dim][1], dim));
 

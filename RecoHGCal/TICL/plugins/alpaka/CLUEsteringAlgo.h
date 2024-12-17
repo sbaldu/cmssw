@@ -117,8 +117,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
         // Get the extremes of the search box
         VecArray<VecArray<float, 2>, Ndim> searchbox_extremes;
+        searchbox_extremes.reset();
         for (int dim{}; dim != Ndim; ++dim) {
           VecArray<float, 2> dim_extremes;
+          dim_extremes.reset();
           dim_extremes.push_back_unsafe(coords_i[dim] - dc);
           dim_extremes.push_back_unsafe(coords_i[dim] + dc);
 
@@ -127,6 +129,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
         // Calculate the search box
         VecArray<VecArray<uint32_t, 2>, Ndim> search_box;
+        search_box.reset();
         dev_tiles->searchBox(acc, searchbox_extremes, &search_box);
 
         VecArray<uint32_t, Ndim> base_vec;
@@ -208,8 +211,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
         // Get the extremes of the search box
         VecArray<VecArray<float, 2>, Ndim> searchbox_extremes;
+        searchbox_extremes.reset();
         for (int dim{}; dim != Ndim; ++dim) {
           VecArray<float, 2> dim_extremes;
+          dim_extremes.reset();
           dim_extremes.push_back_unsafe(coords_i[dim] - dm);
           dim_extremes.push_back_unsafe(coords_i[dim] + dm);
 
@@ -218,6 +223,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
         // Calculate the search box
         VecArray<VecArray<uint32_t, 2>, Ndim> search_box;
+        search_box.reset();
         dev_tiles->searchBox(acc, searchbox_extremes, &search_box);
 
         VecArray<uint32_t, Ndim> base_vec{};
