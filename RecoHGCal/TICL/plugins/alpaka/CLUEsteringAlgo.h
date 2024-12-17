@@ -366,7 +366,6 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                       alpaka::createTaskKernel<Acc1D>(
                           working_div_seeds, KernelAssignClusters<Ndim>{}, m_seeds, m_followers, d_points.view()));
 
-#ifdef DEBUG
       alpaka::memcpy(queue_,
                      cms::alpakatools::make_host_view(h_points.m_rho.data(), h_points.n),
                      d_points.rho,
@@ -379,7 +378,6 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                      cms::alpakatools::make_host_view(h_points.m_nearestHigher.data(), h_points.n),
                      d_points.nearest_higher,
                      static_cast<uint32_t>(h_points.n));
-#endif
 
       alpaka::memcpy(queue_,
                      cms::alpakatools::make_host_view(h_points.m_clusterIndex.data(), h_points.n),
