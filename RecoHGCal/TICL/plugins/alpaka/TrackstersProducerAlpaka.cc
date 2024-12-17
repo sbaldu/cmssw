@@ -64,7 +64,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       // host and device points
       Points<Ndim> h_points(m_coords, m_weight);
       PointsAlpaka<Ndim> d_points(event.queue(), m_weight.size());
-	  FlatKernel kernel(0.5f);
+      FlatKernel kernel(0.5f);
 
       algo_.make_clusters(h_points, d_points, kernel, event.queue(), 256);
     }
