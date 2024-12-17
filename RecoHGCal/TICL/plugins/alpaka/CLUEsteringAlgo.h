@@ -313,7 +313,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     CLUEsteringAlgo() = delete;
     explicit CLUEsteringAlgo(float dc, float rhoc, float dm, int pPBin, Queue queue_)
         : dc_{dc}, rhoc_{rhoc}, dm_{dm}, pointsPerTile_{pPBin} {
-      init_device(queue_);
+      init_device_buffers(queue_);
     }
 
     TilesAlpaka<Ndim>* m_tiles;
@@ -395,14 +395,12 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     // average number of points found in a tile
     int pointsPerTile_;
 
-    // Buffers
     std::optional<cms::alpakatools::device_buffer<Device, TilesAlpaka<Ndim>>> d_tiles;
     std::optional<cms::alpakatools::device_buffer<Device, cms::alpakatools::VecArray<int32_t, reserve>>> d_seeds;
     std::optional<cms::alpakatools::device_buffer<Device, cms::alpakatools::VecArray<int32_t, max_followers>[]>>
         d_followers;
 
-    // Private methods
-    void init_device(Queue queue_) {
+    void init_device_buffers(Queue queue_) {
       d_tiles = cms::alpakatools::make_device_buffer<TilesAlpaka<Ndim>>(queue_);
       d_seeds = cms::alpakatools::make_device_buffer<cms::alpakatools::VecArray<int32_t, reserve>>(queue_);
       d_followers =
