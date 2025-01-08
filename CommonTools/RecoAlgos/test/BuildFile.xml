@@ -1,5 +1,8 @@
-<use name="cppunit"/>
 <use name="CommonTools/RecoAlgos"/>
-<bin file="FKDTree_t.cpp">
-
+<!--<bin file="FKDTree_t.cpp">-->
+<bin file="alpaka/CLUEstering_t.dev.cc">
+    <use name="cppunit"/>
+    <use name="alpaka"/>
+    <!--<use name="HeterogeneousCore/AlpakaInterface"/>-->
+    <flags ALPAKA_BACKENDS="1"/>
 </bin>
