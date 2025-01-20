@@ -45,7 +45,7 @@ namespace ticl {
   };
 
   template <typename ValueType>
-  struct AssociationElementsSoAStruct<ValueType, std::void_t> {
+  struct AssociationElementsSoAStruct<ValueType, void> {
     GENERATE_SOA_LAYOUT(Layout, SOA_COLUMN(ValueType, values), SOA_COLUMN(int, indexes))
   };
 
@@ -54,37 +54,36 @@ namespace ticl {
   template <typename ValueType, typename Score>
   using AssociationElementsSoAView = typename AssociationElementsSoAStruct<ValueType, Score>::template Layout<>::View;
 
-  template <typename V, typename Score = void>
+  template <typename TDev, typename V, typename Score = void, typename = std::enable_if_t<alpaka::isDevice<TDev>>>
   class AssociationElements {
   private:
-    PortableCollection<AssociationElementsSoA<V, Score>> m_data;
+    PortableCollection<AssociationElementsSoA<V, Score>, TDev> m_data;
 
   public:
     using value_type = V;
     using score_type = std::enable_if_t<!std::is_void_v<Score>, Score>;
     static constexpr bool has_score = std::is_void_v<Score>;
 
-    template <template TDev>
     AssociationElements(size_t size, const TDev& dev) : m_data(size, dev) {}
 
-    bool isValid(size_t i) {
+    ALPAKA_FN_HOST_ACC bool isValid(size_t i) {
       if constexpr (has_score) {
-        return value_.first.value >= 0.f;
+        return m_data.view()->scores(i) >= 0.f;
       } else {
-        return value_.value >= 0.f;
+        return m_data.view()->values(i) >= 0.f;
       }
     }
 
     // Enable fraction() if ValueType is FractionType
     template <typename T = V, typename std::enable_if_t<std::is_same_v<T, FractionType>, int> = 0>
-    float fraction(size_t i) const {}
+    ALPAKA_FN_HOST_ACC float fraction(size_t i) const {}
 
     // Enable sharedEnergy() if ValueType is SharedEnergyType
     template <typename T = V, typename std::enable_if_t<std::is_same_v<T, SharedEnergyType>, int> = 0>
-    float sharedEnergy(size_t i) const {}
+    ALPAKA_FN_HOST_ACC float sharedEnergy(size_t i) const {}
 
     template <typename T = Score, typename std::enable_if_t<std::is_void_v<T>, int> = 0>
-    float score(size_t i) const {}
+    ALPAKA_FN_HOST_ACC float score(size_t i) const {}
 
     // Method to accumulate values
     /*
@@ -256,4 +255,3 @@ namespace ticl {
 
 }  // namespace ticl
 
-#endif
