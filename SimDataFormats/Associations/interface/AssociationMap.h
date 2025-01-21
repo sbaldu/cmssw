@@ -113,7 +113,7 @@ namespace ticl {
   class AssociationMap {
   private:
     AssociationElements<V, Score> m_associations;
-    cms::alpakatools::device_buffer<TDev, int> m_offsets;
+    cms::alpakatools::device_buffer<TDev, int[]> m_offsets;
     size_t m_size;  // std::span?
 
     using CollectionRefProdType =
@@ -161,12 +161,14 @@ namespace ticl {
               typename TQueue,
               typename std::enable_if_t<!std::is_void_v<C1> && !std::is_void_v<C2>, int> = 0,
               typename std::enable_if_t<alpaka::isQueue<TQueue>>>
-    AssociationMap(
-        size_t size, const TQueue& queue, const edm::RefProd<C1>& id1, const edm::RefProd<C2>& id2, const edm::Event& event)
+    AssociationMap(size_t size,
+                   const TQueue& queue,
+                   const edm::RefProd<C1>& id1,
+                   const edm::RefProd<C2>& id2,
+                   const edm::Event& event)
         : m_associations(size, queue), m_size{size}, collectionRefProds(std::make_pair(id1, id2)) {
       resize(event);
     }
-
 
     // Constructor for CMSSW-specific use
     template <typename C1 = Collection1,
@@ -186,6 +188,8 @@ namespace ticl {
     }
 
     auto size() const { return m_size; }
+
+    int* offsets() { return m_offsets.data(); }
 
     // CMSSW-specific method to get references
     template <typename C1 = Collection1,
@@ -210,48 +214,92 @@ namespace ticl {
       return collectionRefProds;
     }
 
-    ALPAKA_FN_ACC void insert(int index1, int index2, float fraction_or_energy, float score = 0.0) {
+    ALPAKA_FN_ACC void insert(int offset, int index, float fraction_or_energy, float score = 0.0) {
       assert(index1 < m_size);
       if constexpr (has_score) {
+          m_associations.view().values[offset] = fraction_or_energy;
+          m_associations.view().scores[offset] = score;
+          m_associations.view().indexes[offset] = index;
       } else {
+          m_associations.view().values[offset] = fraction_or_energy;
+          m_associations.view().indexes[offset] = index;
       }
     }
   };
 
-  struct KernelFillAssociator {
-    template <typename TAcc>
-    ALPAKA_FN_ACC void operator()() const {}
-  };
-
-
   // TODO
-  /*
   template <typename TFunc>
   struct KernelComputeAssociations {
     template <typename TAcc>
     ALPAKA_FN_ACC void operator()(
-        const TAcc& acc, const int* indexes, size_t size, int* associations, TFunc func) const {
+        const TAcc& acc, const int* indexes, size_t size, int* associations, const TFunc& func) const {
       for (auto i : cms::alpakatools::uniform_elements(acc, size)) {
         associations[i] = func(indexes[i]);
       }
     }
   };
 
-  template <typename V, typename TDev, typename = std::enable_if_t<alpaka::isDevice<TDev>>>
-  ALPAKA_FN_HOST AssociationMap CreateAssociationMap(const int* indexes, const V* values, size_t size, const TDev& dev) {
-      auto bin_buffer = cms::alpakatools::make_device_buffer<int[]>(dev, size);
+  // Note: bad name. Find a better one.
+  struct KernelComputeAssociationSizes {
+    template <typename TAcc>
+    ALPAKA_FN_ACC void operator()(const TAcc& acc, const int* associations, int* sizes /*tempname*/, size_t size) const {
+      for (auto i : cms::alpakatools::uniform_elements(acc, size)) {
+        alpaka::atomicAdd(acc, &sizes[associations[i]], 1u);
+      }
+    }
+  };
 
-      const auto blocksize = 256;
-      const auto gridsize = cms::alpakatools::divide_up_by(size, blocksize);
-      const auto workdiv = cms::alpakatools::make_workdiv(gridsize, blocksize);
-      alpaka::enqueue(queue, alpaka::CreateTaskKernel(workdiv, KernelComputeAssociations{}));
+  struct KernelFillAssociationMap {
+    template <typename TAcc>
+    ALPAKA_FN_ACC void operator()(const TAcc& acc) const {}
+  };
+
+  // Note: could also provide a different overload for the case where the associations have already
+  // been calculated. In that case, I only need to compute the offsets and fill the map
+  template <typename V, typename TFunc, typename TDev, typename = std::enable_if_t<alpaka::isDevice<TDev>>>
+  ALPAKA_FN_HOST AssociationMap
+  CreateAssociationMap(const int* indexes, const V* values, size_t size, const TFunc& func, const TDev& dev) {
+    auto bin_buffer = cms::alpakatools::make_device_buffer<int[]>(dev, size);
+    auto sizes_buffer = cms::alpakatools::make_device_buffer<int[]>(dev, size);
+
+    const auto blocksize = 512;
+    const auto gridsize = cms::alpakatools::divide_up_by(size, blocksize);
+    const auto workdiv = cms::alpakatools::make_workdiv(gridsize, blocksize);
+    alpaka::enqueue(
+        queue, alpaka::CreateTaskKernel(workdiv, KernelComputeAssociations{}, indexes, size, bin_buffer.data(), func));
+    alpaka::enqueue(
+        queue,
+        alpaka::CreateTaskKernel(workdiv, KernelComputeAssociationSizes{}, bin_buffer.data(), sizes.data(), size));
+
+    AssociationMap assoc_map(size, dev);
+
+    // prepare for prefix scan
+    auto block_counter = cms::alpakatools::make_device_buffer<int32_t>(queue);
+    alpaka::memset(queue, block_counter, 0);
+
+    auto blocksize_multiblockscan = 1024;
+    auto gridsize_multiblockscan =
+        cms::alpakatools::divide_up_by(size, blocksize_multiblockscan);  // think about the size
+    const auto workdiv_multiblockscan = make_workdiv<Acc1D>(gridsize_multiblockscan, blocksize_multiblockscan);
+    auto warp_size = alpaka::getPreferredWarpSize(dev);
+    alpaka::enqueue(queue,
+                    alpaka::CreateTaskKernel(workdiv_multiblockscan,
+                                             multiBlockPrefixScan<int>{},
+                                             sizes_buffer.data(),
+                                             assoc_map.offsets(),
+                                             size,
+                                             gridsize_multiblockscan,
+                                             block_counter.data(),
+                                             warp_size));
+    alpaka::enqueue();
+
+    return AssociationMap;
   }
 
   template <typename V, typename TQueue, typename = std::enable_if_t<alpaka::isQueue<TQueue>>>
-  ALPAKA_FN_HOST AssociationMap CreateAssociationMap(const int* indexes, const V* values, size_t size, const TQueue& queue) {
-      auto bin_buffer = cms::alpakatools::make_device_buffer<>();
+  ALPAKA_FN_HOST AssociationMap
+  CreateAssociationMap(const int* indexes, const V* values, size_t size, const TQueue& queue) {
+    auto bin_buffer = cms::alpakatools::make_device_buffer<>();
   }
-  */
 
 }  // namespace ticl
-
