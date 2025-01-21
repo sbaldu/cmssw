@@ -19,6 +19,8 @@
 <use name="SimDataFormats/Vertex"/>
 <use name="DataFormats/ParticleFlowReco"/>
 <use name="clhep"/>
+<use name="alpaka"/>
+<flags ALPAKA_BACKENDS="serial"/>
 <export>
   <lib name="1"/>
 </export>
