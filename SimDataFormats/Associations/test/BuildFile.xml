@@ -1,0 +1,7 @@
+
+<use name="SimDataFormats/Associators/Interface/AssociatorMap.h"/>
+<bin file="alpaka/TestPortableAssociator.dev.cc">
+    <use name="catch2"/>
+    <use name="alpaka"/>
+    <flags ALPAKA_BACKENDS="1"/>
+</bin>

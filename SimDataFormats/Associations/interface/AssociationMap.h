@@ -25,9 +25,10 @@
 #include "HeterogeneousCore/AlpakaInterface/interface/workdivision.h"
 #include "HeterogeneousCore/AlpakaInterface/interface/prefixScan.h"
 
+
 namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
-    using cms::alpakatools;
+  using namespace cms::alpakatools;
 
   // Define wrapper types to differentiate between fraction and shared energy
   struct FractionType {
@@ -77,22 +78,28 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
     ALPAKA_FN_HOST_ACC bool isValid(size_t i) {
       if constexpr (has_score) {
-        return m_data.view()->scores(i) >= 0.f;
+        return m_data.view().scores(i) >= 0.f;
       } else {
-        return m_data.view()->values(i) >= 0.f;
+        return m_data.view().values(i) >= 0.f;
       }
     }
 
     // Enable fraction() if ValueType is FractionType
     template <typename T = V, typename std::enable_if_t<std::is_same_v<T, FractionType>, int> = 0>
-    ALPAKA_FN_HOST_ACC float fraction(size_t i) const {}
+    ALPAKA_FN_HOST_ACC float fraction(size_t i) const {
+        return m_data.view().values[i];
+    }
 
     // Enable sharedEnergy() if ValueType is SharedEnergyType
     template <typename T = V, typename std::enable_if_t<std::is_same_v<T, SharedEnergyType>, int> = 0>
-    ALPAKA_FN_HOST_ACC float sharedEnergy(size_t i) const {}
+    ALPAKA_FN_HOST_ACC float sharedEnergy(size_t i) const {
+        return m_data.view().values[i];
+    }
 
     template <typename T = Score, typename std::enable_if_t<std::is_void_v<T>, int> = 0>
-    ALPAKA_FN_HOST_ACC float score(size_t i) const {}
+    ALPAKA_FN_HOST_ACC float score(size_t i) const {
+        return m_data.view().scores[i];
+    }
 
     // Method to accumulate values
     /*
@@ -237,7 +244,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     }
 
     ALPAKA_FN_ACC void insert(int offset, int index, float fraction_or_energy, float score = 0.0) {
-      assert(index1 < m_size);
+      assert(index < m_size);
       if constexpr (has_score) {
         m_associations.view().values[offset] = fraction_or_energy;
         m_associations.view().scores[offset] = score;
@@ -277,7 +284,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
   };
 
   template <typename TDev, typename V, typename Score, typename Collection1 = void, typename Collection2 = void>
-  struct KernelFillAssociationMap {
+  struct KernelFillAssociator {
     template <typename TAcc>
     ALPAKA_FN_ACC void operator()(const TAcc& acc,
                                   AssociationMap<TDev, V, Score, Collection1, Collection2>* map,
@@ -287,8 +294,9 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                                   size_t size) const {
       for (auto i : uniform_elements(acc, size)) {
         const auto binId = bin_buffer[i];
-        const auto position = alpaka::atomicAdd(acc, &temp_offsets[binId], 1u);
-        map->template insert<V, void>(content[position], i, values[i], scores[i]);
+        const auto position = temp_offsets[binId];
+        map->template insert<V, void>(position, i, values[i], scores[i]);
+        alpaka::atomicAdd(acc, &temp_offsets[binId], 1u);
       }
     }
   };
@@ -337,7 +345,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     alpaka::exec<Acc1D>(
         queue, workdiv, KernelFillAssociator<V>{}, &assoc_map, bin_buffer.data(), values, temp_offsets.data(), size);
 
-    return AssociationMap;
+    return assoc_map;
   }
 
   template <typename V, typename TQueue, typename = std::enable_if_t<alpaka::isQueue<TQueue>>>
