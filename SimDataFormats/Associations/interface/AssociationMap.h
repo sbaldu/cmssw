@@ -140,7 +140,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     CollectionRefProdType collectionRefProds;
 
     using value_type = V;
-    using has_score = typename AssociationElements<V, Score>::has_score;
+    static constexpr bool has_score = AssociationElements<V, Score>::has_score;
 
     // TODO
     //using Traits = MapTraits<MapType>;
@@ -176,7 +176,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
           m_offsets{make_device_buffer<int[]>(dev, nbins)},
           m_size{nbins},
           collectionRefProds(std::make_pair(id1, id2)) {
-      resize(event);
+      //resize(event);
     }
 
     template <typename C1 = Collection1,
@@ -194,7 +194,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
           m_offsets{make_device_buffer<int[]>(queue, nbins)},
           m_size{nbins},
           collectionRefProds(std::make_pair(id1, id2)) {
-      resize(event);
+      //resize(event);
     }
 
     // Constructor for CMSSW-specific use
@@ -213,7 +213,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
           m_offsets{make_device_buffer<int[]>(queue, nbins)},
           m_size{nbins},
           collectionRefProds(std::make_pair(edm::RefProd<C1>(handle1), edm::RefProd<C2>(handle2))) {
-      resize(event);
+      //resize(event);
     }
 
     auto size() const { return m_size; }
@@ -290,6 +290,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                                   AssociationMap<TDev, V, Score, Collection1, Collection2>* map,
                                   const int* bin_buffer,
                                   const V* values,
+                                  const Score* scores,
                                   int* temp_offsets,
                                   size_t size) const {
       for (auto i : uniform_elements(acc, size)) {
@@ -303,12 +304,13 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
   // Note: could also provide a different overload for the case where the associations have already
   // been calculated. In that case, I only need to compute the offsets and fill the map
-  template <typename V, typename TFunc, typename TDev, typename = std::enable_if_t<alpaka::isDevice<TDev>>>
+  template <typename V, typename Score, typename TFunc, typename TDev, typename = std::enable_if_t<alpaka::isDevice<TDev>>>
   ALPAKA_FN_HOST AssociationMap<TDev, V> CreateAssociationMap(
-      const int* indexes, const V* values, size_t size, const TFunc* func, const TDev& dev) {
+      const int* indexes, const V* values, const Score* scores, size_t size, const TFunc* func, const TDev& dev) {
     auto nbins_buffer = make_device_buffer<int>(dev);
     auto bin_buffer = make_device_buffer<int[]>(dev, size);
 
+    Queue queue(dev);
     const auto blocksize = 512;
     const auto gridsize = divide_up_by<Acc1D>(size, blocksize);
     const auto workdiv = make_workdiv<Acc1D>(gridsize, blocksize);
@@ -343,16 +345,21 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     auto temp_offsets = make_device_buffer<int[]>(queue, size);
     alpaka::memcpy(queue, temp_offsets, assoc_map.offsets());
     alpaka::exec<Acc1D>(
-        queue, workdiv, KernelFillAssociator<V>{}, &assoc_map, bin_buffer.data(), values, temp_offsets.data(), size);
+        queue, workdiv, KernelFillAssociator<TDev, V, Score, void, void>{}, &assoc_map, bin_buffer.data(), values, temp_offsets.data(), size);
 
     return assoc_map;
   }
 
-  template <typename V, typename TQueue, typename = std::enable_if_t<alpaka::isQueue<TQueue>>>
+  /*
+  template <typename V, typename TFunc, typename TQueue, typename = std::enable_if_t<alpaka::isQueue<TQueue>>>
   ALPAKA_FN_HOST AssociationMap<TDev, V> CreateAssociationMap(const int* indexes,
                                                               const V* values,
                                                               size_t size,
+                                                              const TFunc* func,
                                                               const TQueue& queue) {
+      auto device = alpaka::getDevs(queue);
+      return CreateAssociationMap(indexes, values, size, func, device);
   }
+  */
 
 }  // namespace ALPAKA_ACCELERATOR_NAMESPACE
