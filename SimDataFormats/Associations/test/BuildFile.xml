@@ -1,5 +1,6 @@
 
-<use name="SimDataFormats/Associators/Interface/AssociatorMap.h"/>
+<!--use name="SimDataFormats/Associators"/-->
+<use name="HeterogeneousCore/AlpakaInterface"/>
 <bin file="alpaka/TestPortableAssociator.dev.cc">
     <use name="catch2"/>
     <use name="alpaka"/>
