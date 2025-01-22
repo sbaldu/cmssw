@@ -71,7 +71,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
   public:
     using value_type = V;
-    using score_type = std::enable_if_t<!std::is_void_v<Score>, Score>;
+    using score_type = Score;
     static constexpr bool has_score = std::is_void_v<Score>;
 
     AssociationElements(size_t size, const TDev& dev) : m_data(size, dev) {}
@@ -100,24 +100,6 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     ALPAKA_FN_HOST_ACC float score(size_t i) const {
         return m_data.view().scores[i];
     }
-
-    // Method to accumulate values
-    /*
-    void accumulate(const V& other_value) {
-      if constexpr (std::is_same_v<V, FractionType> || std::is_same_v<V, SharedEnergyType>) {
-        value_.value += other_value.value;
-      } else if constexpr (std::is_same_v<V, std::pair<FractionType, float>> ||
-                           std::is_same_v<V, std::pair<SharedEnergyType, float>>) {
-        value_.first.value += other_value.first.value;
-        value_.second += other_value.second;
-      }
-    }
-    bool operator==(const AssociationElement& other) const {
-      return index_ == other.index_ && value_.value == other.value_.value;
-    }
-
-    bool operator!=(const AssociationElement& other) const { return !(*this == other); }
-    */
   };
 
   template <typename TDev,
@@ -130,7 +112,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
   private:
     AssociationElements<V, Score> m_associations;
     device_buffer<TDev, int[]> m_offsets;
-    size_t m_size;  // std::span?
+    size_t m_size;
 
     using CollectionRefProdType =
         typename std::conditional_t<std::is_void_v<Collection1> || std::is_void_v<Collection2>,
@@ -141,12 +123,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
     using value_type = V;
     static constexpr bool has_score = AssociationElements<V, Score>::has_score;
-
-    // TODO
-    //using Traits = MapTraits<MapType>;
-    //using AssociationElementType = typename Traits::AssociationElementType;
-    //static constexpr bool is_one_to_one = Traits::is_one_to_one;
-
+    
   public:
     // Constructors for generic use
     AssociationMap(size_t size, size_t nbins, const TDev& dev)
@@ -312,7 +289,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
     Queue queue(dev);
     const auto blocksize = 512;
-    const auto gridsize = divide_up_by<Acc1D>(size, blocksize);
+    const auto gridsize = divide_up_by(size, blocksize);
     const auto workdiv = make_workdiv<Acc1D>(gridsize, blocksize);
     alpaka::exec<Acc1D>(
         queue, workdiv, KernelComputeAssociations<TFunc>{}, indexes, size, bin_buffer.data(), nbins_buffer.data(), func);
@@ -321,16 +298,15 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     auto sizes_buffer = make_device_buffer<int[]>(dev, nbins);
     alpaka::exec<Acc1D>(queue, workdiv, KernelComputeAssociationSizes{}, bin_buffer.data(), sizes_buffer.data(), nbins);
 
-    // size here should be the max of the associations
     AssociationMap assoc_map(size, nbins, dev);
 
     // prepare for prefix scan
     auto block_counter = make_device_buffer<int32_t>(queue);
     alpaka::memset(queue, block_counter, 0);
 
-    auto blocksize_multiblockscan = 1024;
+    const auto blocksize_multiblockscan = 1024;
     auto gridsize_multiblockscan =
-        divide_up_by<Acc1D>(size, blocksize_multiblockscan);  // think about the size
+        divide_up_by(size, blocksize_multiblockscan);  // think about the size
     const auto workdiv_multiblockscan = make_workdiv<Acc1D>(gridsize_multiblockscan, blocksize_multiblockscan);
     auto warp_size = alpaka::getPreferredWarpSize(dev);
     alpaka::exec<Acc1D>(queue,
