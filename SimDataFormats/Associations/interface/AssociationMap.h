@@ -25,7 +25,6 @@
 #include "HeterogeneousCore/AlpakaInterface/interface/workdivision.h"
 #include "HeterogeneousCore/AlpakaInterface/interface/prefixScan.h"
 
-
 namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
   using namespace cms::alpakatools;
@@ -84,7 +83,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       }
     }
 
+    ALPAKA_FN_HOST auto view() { return m_data.view(); }
+
     // Enable fraction() if ValueType is FractionType
+    /*
     template <typename T = V, typename std::enable_if_t<std::is_same_v<T, FractionType>, int> = 0>
     ALPAKA_FN_HOST_ACC float fraction(size_t i) const {
         return m_data.view().values[i];
@@ -100,6 +102,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     ALPAKA_FN_HOST_ACC float score(size_t i) const {
         return m_data.view().scores[i];
     }
+    */
   };
 
   template <typename TDev,
@@ -110,7 +113,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
             typename = std::enable_if_t<alpaka::isDevice<TDev>>>
   class AssociationMap {
   private:
-    AssociationElements<V, Score> m_associations;
+    AssociationElements<TDev, V, Score> m_associations;
     device_buffer<TDev, int[]> m_offsets;
     size_t m_size;
 
@@ -123,7 +126,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
     using value_type = V;
     static constexpr bool has_score = AssociationElements<V, Score>::has_score;
-    
+
   public:
     // Constructors for generic use
     AssociationMap(size_t size, size_t nbins, const TDev& dev)
@@ -195,6 +198,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
     auto size() const { return m_size; }
 
+    auto view() { return m_associations.view(); }
+
     device_buffer<TDev, int[]>& offsets() { return m_offsets; }
 
     // CMSSW-specific method to get references
@@ -219,26 +224,13 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     std::pair<const edm::RefProd<C1>, const edm::RefProd<C2>> getCollectionIDs() const {
       return collectionRefProds;
     }
-
-    ALPAKA_FN_ACC void insert(int offset, int index, float fraction_or_energy, float score = 0.0) {
-      assert(index < m_size);
-      if constexpr (has_score) {
-        m_associations.view().values[offset] = fraction_or_energy;
-        m_associations.view().scores[offset] = score;
-        m_associations.view().indexes[offset] = index;
-      } else {
-        m_associations.view().values[offset] = fraction_or_energy;
-        m_associations.view().indexes[offset] = index;
-      }
-    }
   };
 
-  // TODO
   template <typename TFunc>
   struct KernelComputeAssociations {
     template <typename TAcc>
     ALPAKA_FN_ACC void operator()(
-        const TAcc& acc, const int* indexes, size_t size, int* associations, int* nbins, const TFunc* func) const {
+        const TAcc& acc, const int* indexes, size_t size, int* associations, int* nbins, TFunc func) const {
       auto max = 0;
       for (auto i : uniform_elements(acc, size)) {
         associations[i] = func(indexes[i]);
@@ -246,7 +238,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
           max = associations[i];
         }
       }
-      *nbins = max;
+      *nbins = max + 1;
     }
   };
 
@@ -254,17 +246,37 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
   struct KernelComputeAssociationSizes {
     template <typename TAcc>
     ALPAKA_FN_ACC void operator()(const TAcc& acc, const int* associations, int* sizes /*tempname*/, size_t size) const {
+        std::cout << "size in kernel = " << size << std::endl;
       for (auto i : uniform_elements(acc, size)) {
-        alpaka::atomicAdd(acc, &sizes[associations[i]], 1u);
+        alpaka::atomicAdd(acc, &sizes[associations[i]], 1);
       }
     }
   };
+
+  template <typename V, typename Score = void>
+  ALPAKA_FN_ACC void insert(
+      AssociationElementsSoAView<V, Score>& assoc_soa_view, size_t size, int offset, int index, V fraction_or_energy, Score score = 0.0) {
+    assert(static_cast<size_t>(index) < size);
+    //if constexpr (has_score) {
+    if constexpr (1) {
+      std::cout << __LINE__ << std::endl;
+//      assoc_soa_view->values()[offset] = fraction_or_energy;
+ //     std::cout << __LINE__ << std::endl;
+      assoc_soa_view.scores()[offset] = score;
+      std::cout << __LINE__ << std::endl;
+      assoc_soa_view.indexes()[offset] = index;
+      std::cout << __LINE__ << std::endl;
+    } else {
+      assoc_soa_view.values()[offset] = fraction_or_energy;
+      assoc_soa_view.indexes()[offset] = index;
+    }
+  }
 
   template <typename TDev, typename V, typename Score, typename Collection1 = void, typename Collection2 = void>
   struct KernelFillAssociator {
     template <typename TAcc>
     ALPAKA_FN_ACC void operator()(const TAcc& acc,
-                                  AssociationMap<TDev, V, Score, Collection1, Collection2>* map,
+                                  AssociationElementsSoAView<V, Score> assoc_soa_view,
                                   const int* bin_buffer,
                                   const V* values,
                                   const Score* scores,
@@ -273,17 +285,22 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       for (auto i : uniform_elements(acc, size)) {
         const auto binId = bin_buffer[i];
         const auto position = temp_offsets[binId];
-        map->template insert<V, void>(position, i, values[i], scores[i]);
-        alpaka::atomicAdd(acc, &temp_offsets[binId], 1u);
+        //insert(assoc_soa_view, size, position, i, values[i], scores[i]);
+        assoc_soa_view[position].indexes() = i;
+        alpaka::atomicAdd(acc, &temp_offsets[binId], 1);
       }
     }
   };
 
   // Note: could also provide a different overload for the case where the associations have already
   // been calculated. In that case, I only need to compute the offsets and fill the map
-  template <typename V, typename Score, typename TFunc, typename TDev, typename = std::enable_if_t<alpaka::isDevice<TDev>>>
-  ALPAKA_FN_HOST AssociationMap<TDev, V> CreateAssociationMap(
-      const int* indexes, const V* values, const Score* scores, size_t size, const TFunc* func, const TDev& dev) {
+  template <typename V,
+            typename Score,
+            typename TFunc,
+            typename TDev,
+            typename = std::enable_if_t<alpaka::isDevice<TDev>>>
+  ALPAKA_FN_HOST AssociationMap<TDev, V, Score> CreateAssociationMap(
+      const int* indexes, const V* values, const Score* scores, size_t size, TFunc func, const TDev& dev) {
     auto nbins_buffer = make_device_buffer<int>(dev);
     auto bin_buffer = make_device_buffer<int[]>(dev, size);
 
@@ -296,32 +313,40 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
     auto nbins = *nbins_buffer.data();
     auto sizes_buffer = make_device_buffer<int[]>(dev, nbins);
-    alpaka::exec<Acc1D>(queue, workdiv, KernelComputeAssociationSizes{}, bin_buffer.data(), sizes_buffer.data(), nbins);
+    alpaka::memset(queue, sizes_buffer, 0);
+    alpaka::exec<Acc1D>(queue, workdiv, KernelComputeAssociationSizes{}, bin_buffer.data(), sizes_buffer.data(), size);
 
-    AssociationMap assoc_map(size, nbins, dev);
+    AssociationMap<TDev, V, Score> assoc_map(size, nbins + 1, dev);
 
     // prepare for prefix scan
     auto block_counter = make_device_buffer<int32_t>(queue);
     alpaka::memset(queue, block_counter, 0);
 
     const auto blocksize_multiblockscan = 1024;
-    auto gridsize_multiblockscan =
-        divide_up_by(size, blocksize_multiblockscan);  // think about the size
+    auto gridsize_multiblockscan = divide_up_by(size, blocksize_multiblockscan);  // think about the size
     const auto workdiv_multiblockscan = make_workdiv<Acc1D>(gridsize_multiblockscan, blocksize_multiblockscan);
     auto warp_size = alpaka::getPreferredWarpSize(dev);
     alpaka::exec<Acc1D>(queue,
                         workdiv_multiblockscan,
                         multiBlockPrefixScan<int>{},
                         sizes_buffer.data(),
-                        assoc_map.offsets().data(),
+                        assoc_map.offsets().data() + 1,
                         size,
                         gridsize_multiblockscan,
                         block_counter.data(),
                         warp_size);
-    auto temp_offsets = make_device_buffer<int[]>(queue, size);
+
+    auto temp_offsets = make_device_buffer<int[]>(queue, nbins + 1);
     alpaka::memcpy(queue, temp_offsets, assoc_map.offsets());
-    alpaka::exec<Acc1D>(
-        queue, workdiv, KernelFillAssociator<TDev, V, Score, void, void>{}, &assoc_map, bin_buffer.data(), values, temp_offsets.data(), size);
+    alpaka::exec<Acc1D>(queue,
+                        workdiv,
+                        KernelFillAssociator<TDev, V, Score, void, void>{},
+                        assoc_map.view(),
+                        bin_buffer.data(),
+                        values,
+                        scores,
+                        temp_offsets.data(),
+                        size);
 
     return assoc_map;
   }
