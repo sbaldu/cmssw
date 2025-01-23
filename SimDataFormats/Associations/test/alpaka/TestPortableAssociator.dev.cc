@@ -36,6 +36,7 @@ TEST_CASE("SimDataFormats/Associations test") {
         auto h_values = cms::alpakatools::make_host_buffer<FractionType[]>(size);
         auto h_scores = cms::alpakatools::make_host_buffer<float[]>(size);
         std::iota(h_points.data(), h_points.data() + size, 0);
+        std::fill(h_values.data(), h_values.data() + size, FractionType{.5});
         std::fill(h_scores.data(), h_scores.data() + size, .5f);
 
         auto d_points = cms::alpakatools::make_device_buffer<int[]>(queue, size);
@@ -47,10 +48,11 @@ TEST_CASE("SimDataFormats/Associations test") {
 
         auto func = [] ALPAKA_FN_ACC (int value) -> int { return (value % 2 == 0) ? 1 : 0; };
 
-        std::cout << __LINE__ << std::endl;
         auto map =
             CreateAssociationMap<FractionType, float, decltype(func), Device>(d_points.data(), d_values.data(), d_scores.data(), size, func, device);
-        std::cout << __LINE__ << std::endl;
+
+        auto map1 = AssociationMap<Device, FractionType, float, void, void>(size, 0, device);
+        map1.fill(d_points.data(), d_values.data(), d_scores.data(), size, func, device);
       }());
     }
   }
