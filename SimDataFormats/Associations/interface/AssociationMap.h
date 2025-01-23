@@ -352,7 +352,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         alpaka::exec<Acc1D>(
             queue, workdiv, KernelComputeAssociations<TFunc>{}, indexes, size, bin_buffer.data(), nbins_buffer.data(), func);
 
-        auto nbins = *nbins_buffer.data();
+        int nbins = 0;
+        alpaka::memcpy(queue, make_host_view<int>(nbins), nbins_buffer);
         m_size = nbins;
         m_offsets = make_device_buffer<int[]>(dev, nbins + 1);
         auto sizes_buffer = make_device_buffer<int[]>(dev, nbins);
