@@ -198,6 +198,16 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     using value_type = V;
     static constexpr bool has_score = AssociationElements<V, Score>::has_score;
 
+    template <typename T>
+    struct Span {
+        T* buf;
+        int m_size;
+
+        ALPAKA_FN_ACC T* data() { return buf; }
+        ALPAKA_FN_ACC const T* data() const { return buf; }
+        ALPAKA_FN_ACC int size() const { return m_size; }
+    };
+
   public:
     // Constructors for generic use
     AssociationMap(size_t size, size_t nbins, const TDev& dev)
@@ -271,7 +281,41 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
     auto view() { return m_associations.view(); }
 
-    device_buffer<TDev, int[]>& offsets() { return m_offsets; }
+    ALPAKA_FN_ACC Span<V> values(size_t assoc_id) {
+        auto size = m_offsets[assoc_id + 1] - m_offsets[assoc_id];
+        auto* buf_ptr = m_associations.view().values() + m_offsets[assoc_id];
+        return Span<V>{buf_ptr, size};
+    }
+    ALPAKA_FN_HOST device_view<TDev, V[]> values(const TDev& dev, size_t assoc_id) {
+        auto size = m_offsets[assoc_id + 1] - m_offsets[assoc_id];
+        auto* buf_ptr = m_associations.view().values() + m_offsets[assoc_id];
+        return make_device_view<V[], TDev>(dev, buf_ptr, size);
+    }
+
+    ALPAKA_FN_ACC Span<Score> scores(size_t assoc_id) {
+        auto size = m_offsets[assoc_id + 1] - m_offsets[assoc_id];
+        auto* buf_ptr = m_associations.view().scores() + m_offsets[assoc_id];
+        return Span<Score>{buf_ptr, size};
+    }
+    ALPAKA_FN_HOST device_view<TDev, Score[]> scores(const TDev& dev, size_t assoc_id) {
+        auto size = m_offsets[assoc_id + 1] - m_offsets[assoc_id];
+        auto* buf_ptr = m_associations.view().scores() + m_offsets[assoc_id];
+        return make_device_view<Score[], TDev>(dev, buf_ptr, size);
+    }
+
+    ALPAKA_FN_ACC Span<int> indexes(size_t assoc_id) {
+        auto size = m_offsets[assoc_id + 1] - m_offsets[assoc_id];
+        auto* buf_ptr = m_associations.view().indexes() + m_offsets[assoc_id];
+        return Span<int>{buf_ptr, size};
+    }
+    ALPAKA_FN_HOST device_view<TDev, int[]> indexes(const TDev& dev, size_t assoc_id) {
+        auto size = m_offsets[assoc_id + 1] - m_offsets[assoc_id];
+        auto* buf_ptr = m_associations.view().indexes() + m_offsets[assoc_id];
+        return make_device_view<int[], TDev>(dev, buf_ptr, size);
+    }
+
+    ALPAKA_FN_HOST device_buffer<TDev, int[]>& offsets() { return m_offsets; }
+    ALPAKA_FN_ACC int offsets(size_t assoc_id) const { return m_offsets[assoc_id]; }
 
     // CMSSW-specific method to get references
     template <typename C1 = Collection1,
