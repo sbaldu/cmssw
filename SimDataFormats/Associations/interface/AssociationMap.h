@@ -110,11 +110,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     assoc_soa_view.indexes()[offset] = index;
   }
 
-  template <typename TDev,
-            typename V,
-            typename Score,
-            typename Collection1 = void,
-            typename Collection2 = void>
+  template <typename TDev, typename V, typename Score, typename Collection1, typename Collection2>
   struct KernelFillAssociator {
     template <typename TAcc>
     ALPAKA_FN_ACC void operator()(const TAcc& acc,
@@ -133,6 +129,42 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     }
   };
 
+  template <typename TDev, typename V, typename Collection1, typename Collection2>
+  struct KernelFillAssociator<TDev, V, void, Collection1, Collection2> {
+    template <typename TAcc>
+    ALPAKA_FN_ACC void operator()(const TAcc& acc,
+                                  AssociationElementsSoAView<V, void> assoc_soa_view,
+                                  const int* bin_buffer,
+                                  const V* values,
+                                  int* temp_offsets,
+                                  size_t size) const {
+      for (auto i : uniform_elements(acc, size)) {
+        const auto binId = bin_buffer[i];
+        const auto position = temp_offsets[binId];
+        insert(assoc_soa_view, size, position, i, values[i]);
+        alpaka::atomicAdd(acc, &temp_offsets[binId], 1);
+      }
+    }
+  };
+
+  /*
+  template <typename TDev, typename Collection1, typename Collection2>
+  struct KernelFillAssociator<TDev, void, void, Collection1, Collection2> {
+    template <typename TAcc>
+    ALPAKA_FN_ACC void operator()(const TAcc& acc,
+                                  AssociationElementsSoAView<V, Score> assoc_soa_view,
+                                  const int* bin_buffer,
+                                  int* temp_offsets,
+                                  size_t size) const {
+      for (auto i : uniform_elements(acc, size)) {
+        const auto binId = bin_buffer[i];
+        const auto position = temp_offsets[binId];
+        insert(assoc_soa_view, size, position, i);
+        alpaka::atomicAdd(acc, &temp_offsets[binId], 1);
+      }
+    }
+  };
+  */
 
   template <typename TDev, typename V, typename Score = void, typename = std::enable_if_t<alpaka::isDevice<TDev>>>
   class AssociationElements {
@@ -200,12 +232,12 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
     template <typename T>
     struct Span {
-        T* buf;
-        int m_size;
+      T* buf;
+      int m_size;
 
-        ALPAKA_FN_ACC T* data() { return buf; }
-        ALPAKA_FN_ACC const T* data() const { return buf; }
-        ALPAKA_FN_ACC int size() const { return m_size; }
+      ALPAKA_FN_ACC T* data() { return buf; }
+      ALPAKA_FN_ACC const T* data() const { return buf; }
+      ALPAKA_FN_ACC int size() const { return m_size; }
     };
 
   public:
@@ -282,36 +314,36 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     auto view() { return m_associations.view(); }
 
     ALPAKA_FN_ACC Span<V> values(size_t assoc_id) {
-        auto size = m_offsets[assoc_id + 1] - m_offsets[assoc_id];
-        auto* buf_ptr = m_associations.view().values() + m_offsets[assoc_id];
-        return Span<V>{buf_ptr, size};
+      auto size = m_offsets[assoc_id + 1] - m_offsets[assoc_id];
+      auto* buf_ptr = m_associations.view().values() + m_offsets[assoc_id];
+      return Span<V>{buf_ptr, size};
     }
     ALPAKA_FN_HOST device_view<TDev, V[]> values(const TDev& dev, size_t assoc_id) {
-        auto size = m_offsets[assoc_id + 1] - m_offsets[assoc_id];
-        auto* buf_ptr = m_associations.view().values() + m_offsets[assoc_id];
-        return make_device_view<V[], TDev>(dev, buf_ptr, size);
+      auto size = m_offsets[assoc_id + 1] - m_offsets[assoc_id];
+      auto* buf_ptr = m_associations.view().values() + m_offsets[assoc_id];
+      return make_device_view<V[], TDev>(dev, buf_ptr, size);
     }
 
     ALPAKA_FN_ACC Span<Score> scores(size_t assoc_id) {
-        auto size = m_offsets[assoc_id + 1] - m_offsets[assoc_id];
-        auto* buf_ptr = m_associations.view().scores() + m_offsets[assoc_id];
-        return Span<Score>{buf_ptr, size};
+      auto size = m_offsets[assoc_id + 1] - m_offsets[assoc_id];
+      auto* buf_ptr = m_associations.view().scores() + m_offsets[assoc_id];
+      return Span<Score>{buf_ptr, size};
     }
     ALPAKA_FN_HOST device_view<TDev, Score[]> scores(const TDev& dev, size_t assoc_id) {
-        auto size = m_offsets[assoc_id + 1] - m_offsets[assoc_id];
-        auto* buf_ptr = m_associations.view().scores() + m_offsets[assoc_id];
-        return make_device_view<Score[], TDev>(dev, buf_ptr, size);
+      auto size = m_offsets[assoc_id + 1] - m_offsets[assoc_id];
+      auto* buf_ptr = m_associations.view().scores() + m_offsets[assoc_id];
+      return make_device_view<Score[], TDev>(dev, buf_ptr, size);
     }
 
     ALPAKA_FN_ACC Span<int> indexes(size_t assoc_id) {
-        auto size = m_offsets[assoc_id + 1] - m_offsets[assoc_id];
-        auto* buf_ptr = m_associations.view().indexes() + m_offsets[assoc_id];
-        return Span<int>{buf_ptr, size};
+      auto size = m_offsets[assoc_id + 1] - m_offsets[assoc_id];
+      auto* buf_ptr = m_associations.view().indexes() + m_offsets[assoc_id];
+      return Span<int>{buf_ptr, size};
     }
     ALPAKA_FN_HOST device_view<TDev, int[]> indexes(const TDev& dev, size_t assoc_id) {
-        auto size = m_offsets[assoc_id + 1] - m_offsets[assoc_id];
-        auto* buf_ptr = m_associations.view().indexes() + m_offsets[assoc_id];
-        return make_device_view<int[], TDev>(dev, buf_ptr, size);
+      auto size = m_offsets[assoc_id + 1] - m_offsets[assoc_id];
+      auto* buf_ptr = m_associations.view().indexes() + m_offsets[assoc_id];
+      return make_device_view<int[], TDev>(dev, buf_ptr, size);
     }
 
     ALPAKA_FN_HOST device_buffer<TDev, int[]>& offsets() { return m_offsets; }
@@ -341,60 +373,78 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     }
 
     template <typename TFunc>
-    ALPAKA_FN_HOST void fill(const int* indexes, const V* values, const Score* scores, size_t size, TFunc func, const TDev& dev) {
-        auto nbins_buffer = make_device_buffer<int>(dev);
-        auto bin_buffer = make_device_buffer<int[]>(dev, size);
+    ALPAKA_FN_HOST void fill(
+        const int* indexes, const V* values, const Score* scores, size_t size, TFunc func, const TDev& dev) {
+      auto nbins_buffer = make_device_buffer<int>(dev);
+      auto bin_buffer = make_device_buffer<int[]>(dev, size);
 
-        Queue queue(dev);
-        const auto blocksize = 512;
-        const auto gridsize = divide_up_by(size, blocksize);
-        const auto workdiv = make_workdiv<Acc1D>(gridsize, blocksize);
-        alpaka::exec<Acc1D>(
-            queue, workdiv, KernelComputeAssociations<TFunc>{}, indexes, size, bin_buffer.data(), nbins_buffer.data(), func);
+      Queue queue(dev);
+      const auto blocksize = 512;
+      const auto gridsize = divide_up_by(size, blocksize);
+      const auto workdiv = make_workdiv<Acc1D>(gridsize, blocksize);
+      alpaka::exec<Acc1D>(queue,
+                          workdiv,
+                          KernelComputeAssociations<TFunc>{},
+                          indexes,
+                          size,
+                          bin_buffer.data(),
+                          nbins_buffer.data(),
+                          func);
 
-        int nbins = 0;
-        alpaka::memcpy(queue, make_host_view<int>(nbins), nbins_buffer);
-        m_size = nbins;
-        m_offsets = make_device_buffer<int[]>(dev, nbins + 1);
-        auto sizes_buffer = make_device_buffer<int[]>(dev, nbins);
-        alpaka::memset(queue, sizes_buffer, 0);
-        alpaka::exec<Acc1D>(queue, workdiv, KernelComputeAssociationSizes{}, bin_buffer.data(), sizes_buffer.data(), size);
+      int nbins = 0;
+      alpaka::memcpy(queue, make_host_view<int>(nbins), nbins_buffer);
+      m_size = nbins;
+      m_offsets = make_device_buffer<int[]>(dev, nbins + 1);
+      auto sizes_buffer = make_device_buffer<int[]>(dev, nbins);
+      alpaka::memset(queue, sizes_buffer, 0);
+      alpaka::exec<Acc1D>(
+          queue, workdiv, KernelComputeAssociationSizes{}, bin_buffer.data(), sizes_buffer.data(), size);
 
-        // prepare for prefix scan
-        auto block_counter = make_device_buffer<int32_t>(queue);
-        alpaka::memset(queue, block_counter, 0);
+      // prepare for prefix scan
+      auto block_counter = make_device_buffer<int32_t>(queue);
+      alpaka::memset(queue, block_counter, 0);
 
-        alpaka::memset(queue, m_offsets, 0);
+      alpaka::memset(queue, m_offsets, 0);
 
-        const auto blocksize_multiblockscan = 1024;
-        auto gridsize_multiblockscan = divide_up_by(nbins, blocksize_multiblockscan);  // think about the size
-        const auto workdiv_multiblockscan = make_workdiv<Acc1D>(gridsize_multiblockscan, blocksize_multiblockscan);
-        auto warp_size = alpaka::getPreferredWarpSize(dev);
-        alpaka::exec<Acc1D>(queue,
-                            workdiv_multiblockscan,
-                            multiBlockPrefixScan<int>{},
-                            sizes_buffer.data(),
-                            m_offsets.data() + 1,
-                            nbins,
-                            gridsize_multiblockscan,
-                            block_counter.data(),
-                            warp_size);
+      const auto blocksize_multiblockscan = 1024;
+      auto gridsize_multiblockscan = divide_up_by(nbins, blocksize_multiblockscan);  // think about the size
+      const auto workdiv_multiblockscan = make_workdiv<Acc1D>(gridsize_multiblockscan, blocksize_multiblockscan);
+      auto warp_size = alpaka::getPreferredWarpSize(dev);
+      alpaka::exec<Acc1D>(queue,
+                          workdiv_multiblockscan,
+                          multiBlockPrefixScan<int>{},
+                          sizes_buffer.data(),
+                          m_offsets.data() + 1,
+                          nbins,
+                          gridsize_multiblockscan,
+                          block_counter.data(),
+                          warp_size);
 
-        auto temp_offsets = make_device_buffer<int[]>(queue, nbins + 1);
-        alpaka::memcpy(queue, temp_offsets, m_offsets);
-        alpaka::exec<Acc1D>(queue,
-                            workdiv,
-                            KernelFillAssociator<TDev, V, Score, void, void>{},
-                            this->view(),
-                            bin_buffer.data(),
-                            values,
-                            scores,
-                            temp_offsets.data(),
-                            size);
+      auto temp_offsets = make_device_buffer<int[]>(queue, nbins + 1);
+      alpaka::memcpy(queue, temp_offsets, m_offsets);
+      alpaka::exec<Acc1D>(queue,
+                          workdiv,
+                          KernelFillAssociator<TDev, V, Score, void, void>{},
+                          this->view(),
+                          bin_buffer.data(),
+                          values,
+                          scores,
+                          temp_offsets.data(),
+                          size);
     }
+
+    /*
+    template <typename C1 = Collection1,
+              typename C2 = Collection2,
+              typename std::enable_if_t<!std::is_void_v<C1> && !std::is_void_v<C2>, int> = 0>
+    void fill(const edm::Ref<C1>& ref1, const edm::Ref<C2>& ref2, float fraction_or_energy, float score = 0.0f) {
+      auto assoc_id = ref1.key();
+      auto index = ref2.key();
+      insert(ref1.key(), ref2.key(), fraction_or_energy, score);
+    }
+    */
   };
 
-  
   template <typename V,
             typename Score,
             typename TFunc,
