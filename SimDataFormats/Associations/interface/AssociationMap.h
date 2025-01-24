@@ -275,8 +275,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     template <typename C1 = Collection1,
               typename C2 = Collection2,
               typename TQueue,
-              typename std::enable_if_t<!std::is_void_v<C1> && !std::is_void_v<C2>, int> = 0,
-              typename std::enable_if_t<alpaka::isQueue<TQueue>>>
+              std::enable_if_t<!std::is_void_v<C1> && !std::is_void_v<C2>, int> = 0,
+              typename = std::enable_if_t<alpaka::isQueue<TQueue>>>
     AssociationMap(size_t size,
                    size_t nbins,
                    const TQueue& queue,
@@ -294,8 +294,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     template <typename C1 = Collection1,
               typename C2 = Collection2,
               typename TQueue,
-              typename std::enable_if_t<!std::is_void_v<C1> && !std::is_void_v<C2>, int> = 0,
-              typename std::enable_if_t<alpaka::isQueue<TQueue>>>
+              std::enable_if_t<!std::is_void_v<C1> && !std::is_void_v<C2>, int> = 0,
+              typename = std::enable_if_t<alpaka::isQueue<TQueue>>>
     AssociationMap(size_t size,
                    size_t nbins,
                    const TQueue& queue,
