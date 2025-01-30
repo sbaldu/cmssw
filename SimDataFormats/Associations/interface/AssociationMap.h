@@ -141,7 +141,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       for (auto i : uniform_elements(acc, size)) {
         const auto binId = bin_buffer[i];
         const auto position = temp_offsets[binId];
-        insert(assoc_soa_view, size, position, i, values[i]);
+        insert<V, void>(assoc_soa_view, size, position, i, values[i]);
         alpaka::atomicAdd(acc, &temp_offsets[binId], 1);
       }
     }
@@ -244,14 +244,14 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     // Constructors for generic use
     AssociationMap(size_t size, size_t nbins, const TDev& dev)
         : m_associations(size, dev),
-          m_offsets{make_device_buffer<int[]>(dev, nbins)},
+          m_offsets{make_device_buffer<int[]>(dev, nbins + 1)},
           m_size{nbins},
           collectionRefProds() {}
 
     template <typename TQueue, typename = std::enable_if_t<alpaka::isQueue<TQueue>>>
     AssociationMap(size_t size, size_t nbins, const TQueue& queue)
         : m_associations(size, queue),
-          m_offsets{make_device_buffer<int[]>(queue, nbins)},
+          m_offsets{make_device_buffer<int[]>(queue, nbins + 1)},
           m_size{nbins},
           collectionRefProds() {}
 
@@ -266,10 +266,9 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                    const edm::RefProd<C2>& id2,
                    const edm::Event& event)
         : m_associations(size, dev),
-          m_offsets{make_device_buffer<int[]>(dev, nbins)},
+          m_offsets{make_device_buffer<int[]>(dev, nbins + 1)},
           m_size{nbins},
           collectionRefProds(std::make_pair(id1, id2)) {
-      //resize(event);
     }
 
     template <typename C1 = Collection1,
@@ -284,10 +283,9 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                    const edm::RefProd<C2>& id2,
                    const edm::Event& event)
         : m_associations(size, queue),
-          m_offsets{make_device_buffer<int[]>(queue, nbins)},
+          m_offsets{make_device_buffer<int[]>(queue, nbins + 1)},
           m_size{nbins},
           collectionRefProds(std::make_pair(id1, id2)) {
-      //resize(event);
     }
 
     // Constructor for CMSSW-specific use
@@ -303,10 +301,9 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                    const edm::Handle<C2>& handle2,
                    const edm::Event& event)
         : m_associations(size, queue),
-          m_offsets{make_device_buffer<int[]>(queue, nbins)},
+          m_offsets{make_device_buffer<int[]>(queue, nbins + 1)},
           m_size{nbins},
           collectionRefProds(std::make_pair(edm::RefProd<C1>(handle1), edm::RefProd<C2>(handle2))) {
-      //resize(event);
     }
 
     auto size() const { return m_size; }
