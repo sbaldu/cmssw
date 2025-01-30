@@ -321,12 +321,15 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       return make_device_view<V[], TDev>(dev, buf_ptr, size);
     }
 
-    ALPAKA_FN_ACC Span<Score> scores(size_t assoc_id) {
+    template <typename TScore = Score>
+    ALPAKA_FN_ACC std::enable_if_t<!std::is_void_v<TScore>, Span<TScore>> scores(size_t assoc_id) {
       auto size = m_offsets[assoc_id + 1] - m_offsets[assoc_id];
       auto* buf_ptr = m_associations.view().scores() + m_offsets[assoc_id];
       return Span<Score>{buf_ptr, size};
     }
-    ALPAKA_FN_HOST device_view<TDev, Score[]> scores(const TDev& dev, size_t assoc_id) {
+    template <typename TScore = Score>
+    ALPAKA_FN_HOST std::enable_if_t<!std::is_void_v<TScore>, device_view<TDev, TScore[]>> scores(const TDev& dev,
+                                                                                                 size_t assoc_id) {
       auto size = m_offsets[assoc_id + 1] - m_offsets[assoc_id];
       auto* buf_ptr = m_associations.view().scores() + m_offsets[assoc_id];
       return make_device_view<Score[], TDev>(dev, buf_ptr, size);
@@ -369,8 +372,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       return collectionRefProds;
     }
 
-    template <typename TFunc>
-    ALPAKA_FN_HOST void fill(
+    template <typename TFunc, typename TScore = Score>
+    ALPAKA_FN_HOST std::enable_if_t<!std::is_void_v<TScore>, void> fill(
         const int* indexes, const V* values, const Score* scores, size_t size, TFunc func, const TDev& dev) {
       auto nbins_buffer = make_device_buffer<int>(dev);
       auto bin_buffer = make_device_buffer<int[]>(dev, size);
