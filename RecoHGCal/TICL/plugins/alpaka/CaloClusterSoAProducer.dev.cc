@@ -25,7 +25,8 @@
 #include "DataFormats/ClusterSoA/interface/CaloClusterSoA.h"
 #include "DataFormats/Portable/interface/PortableCollection.h"
 
-
+// Portable association map
+#include "SimDataFormats/Associations/interface/AssociationMap.h"
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
@@ -39,11 +40,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
   public:
     explicit CaloClusterSoAProducer(edm::ParameterSet const& iConfig)
         // Standard CPU-based input token for CaloClusters
-        : srcToken_{consumes<std::vector<reco::CaloCluster>>(
-              iConfig.getParameter<edm::InputTag>("src"))}
-        // Alpaka-based output token: we must pass a product instance name (can be empty)
-        , putToken_{produces("CaloClustersSoA")} {
-    }
+        : srcToken_{consumes<std::vector<reco::CaloCluster>>(iConfig.getParameter<edm::InputTag>("src"))}
+          // Alpaka-based output token: we must pass a product instance name (can be empty)
+          ,
+          putToken_{produces("CaloClustersSoA")} {}
 
     ~CaloClusterSoAProducer() override = default;
 
@@ -71,37 +71,65 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       auto const& clusters = *clusterHandle;
       size_t const nClusters = clusters.size();
 
+      const auto nAssociations =
+          std::accumulate(clusters.begin(), clusters.end(), 0, [](auto init, const auto& cluster) -> int {
+            return init + cluster.size();
+          });
+      std::vector<int> associations(nAssociations);
+      std::vector<int> assocDetIds(nAssociations);
+      std::vector<FractionType> assocFractions(nAssociations);
+      for (auto ci = 0ul; ci < nClusters; ++ci) {
+        const auto& hitsAndFractions = clusters[ci].hitsAndFractions();
+        std::for_each(
+            hitsAndFractions.begin(),
+            hitsAndFractions.end(),
+            [&assocDetIds, &assocFractions, &associations, ci, i = 0](const auto& hitFractionPair) mutable -> void {
+              assocDetIds[i] = hitFractionPair.first.rawId();
+              assocFractions[i] = hitFractionPair.second;
+              associations[i] = ci;
+              ++i;
+            });
+      }
+      auto getAssoc = [&associations](auto detId) -> int { return associations[detId]; };
+      auto assocMap =
+          std::make_unique<AssociationMap<Device, FractionType>>(nAssociations, nClusters, iEvent.device());
+      assocMap->fill(associations.data(),
+                     nClusters,
+                     assocDetIds.data(),
+                     assocFractions.data(),
+                     nAssociations,
+                     getAssoc,
+                     iEvent.device());
+
       // 2) Create output multi-SoA with the correct size on the given device
       //    iEvent.device() or iEvent.queue() is the Alpaka device/queue for the current accelerator
-      CaloClusterSoACollection outCollection(nClusters, iEvent.device());
+      CaloClusterSoACollection outCollection({{int(nClusters), int(nClusters), int(nClusters)}}, iEvent.device());
 
       // 3) Get references to each SoA
       auto positionEnergyView = outCollection.view<Position4D_Energy_SoA>();
-      auto positionErrorView  = outCollection.view<Position4D_Energy_Errors_SoA>();
-      auto extraView          = outCollection.view<CaloClusterExtra_SoA>();
+      auto positionErrorView = outCollection.view<Position4D_Energy_Errors_SoA>();
+      auto extraView = outCollection.view<CaloClusterExtra_SoA>();
 
       // 4) Fill them
       for (size_t i = 0; i < nClusters; ++i) {
         auto const& cluster = clusters[i];
 
         auto rowPE = positionEnergyView[i];
-        rowPE.x()                = cluster.x();
-        rowPE.y()                = cluster.y();
-        rowPE.z()                = cluster.z();
-        rowPE.raw_energy()       = cluster.energy();
+        rowPE.x() = cluster.x();
+        rowPE.y() = cluster.y();
+        rowPE.z() = cluster.z();
+        rowPE.raw_energy() = cluster.energy();
         rowPE.corrected_energy() = cluster.correctedEnergy();
-        rowPE.time()             = 0.f;  // no time in reco::CaloCluster
+        rowPE.time() = 0.f;  // no time in reco::CaloCluster
 
         auto rowErr = positionErrorView[i];
-        rowErr.xErr()    = 0.f;
-        rowErr.yErr()    = 0.f;
-        rowErr.zErr()    = 0.f;
+        rowErr.xErr() = 0.f;
+        rowErr.yErr() = 0.f;
+        rowErr.zErr() = 0.f;
         rowErr.timeErr() = 0.f;
-        rowErr.energyErr() = (cluster.correctedEnergyUncertainty() > 0.f)
-                                 ? cluster.correctedEnergyUncertainty()
-                                 : 0.f;
-        std::cout << "cluster " << i << " has energy " << cluster.energy() << " and uncertainty "
-                  << rowErr.energyErr() << std::endl;
+        rowErr.energyErr() = (cluster.correctedEnergyUncertainty() > 0.f) ? cluster.correctedEnergyUncertainty() : 0.f;
+        std::cout << "cluster " << i << " has energy " << cluster.energy() << " and uncertainty " << rowErr.energyErr()
+                  << std::endl;
         // auto rowExtra = extraView[i];
         // cast from reco::CaloCluster::AlgoId => your SoA's AlgoId
         // rowExtra.algoId() = (AlgoId)(cluster.algoID());

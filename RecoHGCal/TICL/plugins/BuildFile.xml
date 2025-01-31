@@ -81,8 +81,9 @@
 <use name="fastjet"/>
 <use name="alpaka"/>
 <use name="HeterogeneousCore/AlpakaInterface"/>
+<use name="HeterogeneousCore/AlpakaCore"/>
 <use name="DataFormats/Portable"/>
-<use name= "DataFormats/ClusterSoA"/>
+<use name="DataFormats/ClusterSoA"/>
 <flags ALPAKA_BACKENDS="1"/>
 <flags EDM_PLUGIN="1"/>
 </library>

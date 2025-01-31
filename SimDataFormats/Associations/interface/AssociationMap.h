@@ -522,8 +522,6 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                           temp_offsets.data(),
                           size);
     }
-  };
-
 
     template <typename TFunc, typename TScore = Score>
     ALPAKA_FN_HOST std::enable_if_t<std::is_void_v<TScore>, void> fill(
@@ -636,8 +634,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
   template <typename V,
             typename TFunc,
             typename TDev,
-            typename = std::enable_if_t<alpaka::isDevice<TDev>>,
-            std::enable_if_t<std::is_void_v<Score>, int> = 0>
+            typename = std::enable_if_t<alpaka::isDevice<TDev>>>
   ALPAKA_FN_HOST AssociationMap<TDev, V> CreateAssociationMap(
       const int* indexes, const V* values, size_t size, TFunc func, const TDev& dev) {
     auto nbins_buffer = make_device_buffer<int>(dev);
@@ -655,7 +652,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     alpaka::memset(queue, sizes_buffer, 0);
     alpaka::exec<Acc1D>(queue, workdiv, KernelComputeAssociationSizes{}, bin_buffer.data(), sizes_buffer.data(), size);
 
-    AssociationMap<TDev, V, Score> assoc_map(size, nbins + 1, dev);
+    AssociationMap<TDev, V> assoc_map(size, nbins + 1, dev);
 
     // prepare for prefix scan
     auto block_counter = make_device_buffer<int32_t>(queue);
@@ -679,7 +676,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     alpaka::memcpy(queue, temp_offsets, assoc_map.offsets());
     alpaka::exec<Acc1D>(queue,
                         workdiv,
-                        KernelFillAssociator<TDev, V, Score, void, void>{},
+                        KernelFillAssociator<TDev, V, void, void, void>{},
                         assoc_map.view(),
                         bin_buffer.data(),
                         values,
