@@ -1,4 +1,5 @@
 #include <iostream>
+#include <memory>
 
 // Alpaka-based EDProducer from CMSSW
 // Alpaka config (ALPAKA_ACCELERATOR_NAMESPACE, etc.)
@@ -40,10 +41,12 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
   public:
     explicit CaloClusterSoAProducer(edm::ParameterSet const& iConfig)
         // Standard CPU-based input token for CaloClusters
-        : srcToken_{consumes<std::vector<reco::CaloCluster>>(iConfig.getParameter<edm::InputTag>("src"))}
-          // Alpaka-based output token: we must pass a product instance name (can be empty)
-          ,
-          putToken_{produces("CaloClustersSoA")} {}
+        : EDProducer<>(iConfig),
+          srcToken_{consumes<std::vector<reco::CaloCluster>>(iConfig.getParameter<edm::InputTag>("src"))}
+    // Alpaka-based output token: we must pass a product instance name (can be empty)
+    {
+      putToken_ = produces();
+    }
 
     ~CaloClusterSoAProducer() override = default;
 
@@ -91,9 +94,9 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
             });
       }
       auto getAssoc = [&associations](auto detId) -> int { return associations[detId]; };
-      auto assocMap =
-          std::make_unique<AssociationMap<Device, FractionType>>(nAssociations, nClusters, iEvent.device());
-      assocMap->fill(associations.data(),
+      auto assocMap = AssociationMap<Device, FractionType>(nAssociations, nClusters, iEvent.device());
+      auto filler = std::make_unique<AlgoFillAssociator>();
+      filler->fill(associations.data(),
                      nClusters,
                      assocDetIds.data(),
                      assocFractions.data(),
@@ -103,7 +106,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
       // 2) Create output multi-SoA with the correct size on the given device
       //    iEvent.device() or iEvent.queue() is the Alpaka device/queue for the current accelerator
-      CaloClusterSoACollection outCollection({{int(nClusters), int(nClusters), int(nClusters)}}, iEvent.device());
+      auto outCollection = CaloClusterSoAHostCollection({{int(nClusters), int(nClusters), int(nClusters)}}, iEvent.queue());
 
       // 3) Get references to each SoA
       auto positionEnergyView = outCollection.view<Position4D_Energy_SoA>();
@@ -151,7 +154,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     edm::EDGetTokenT<std::vector<reco::CaloCluster>> srcToken_;
 
     // The Alpaka-based output token for the multi-SoA product
-    device::EDPutToken<CaloClusterSoACollection> putToken_;
+    edm::EDPutTokenT<CaloClusterSoAHostCollection> putToken_;
   };
 
 }  // namespace ALPAKA_ACCELERATOR_NAMESPACE

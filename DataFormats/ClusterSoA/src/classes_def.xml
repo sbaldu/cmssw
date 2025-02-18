@@ -1,0 +1,8 @@
+
+<lcgdict>
+      <class name="Position4D_Energy_SoA"/>
+      <class name="Position4D_Energy_Errors_SoA"/>
+      <class name="CaloClusterExtra_SoA"/>
+      <class name="CaloClusterSoAHostCollection"/>
+      <class name="edm::Wrapper<CaloClusterSoAHostCollection>" splitLevel="0"/>
+</lcgdict>
