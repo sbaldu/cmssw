@@ -25,7 +25,7 @@
 #include "HeterogeneousCore/AlpakaInterface/interface/workdivision.h"
 #include "HeterogeneousCore/AlpakaInterface/interface/prefixScan.h"
 
-namespace TICL {
+namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
   using namespace cms::alpakatools;
 
@@ -166,6 +166,29 @@ namespace TICL {
   };
   */
 
+  template <typename TDev, typename V, typename Score = void, typename = std::enable_if_t<alpaka::isDevice<TDev>>>
+  class AssociationElements {
+  private:
+    PortableCollection<AssociationElementsSoA<V, Score>, TDev> m_data;
+
+  public:
+    using value_type = V;
+    using score_type = Score;
+    static constexpr bool has_score = std::is_void_v<Score>;
+
+    AssociationElements(size_t size, const TDev& dev) : m_data(size, dev) {}
+
+    ALPAKA_FN_HOST_ACC bool isValid(size_t i) {
+      if constexpr (has_score) {
+        return m_data.view().scores(i) >= 0.f;
+      } else {
+        return m_data.view().values(i) >= 0.f;
+      }
+    }
+
+    ALPAKA_FN_HOST auto view() { return m_data.view(); }
+  };
+
   template <typename TDev,
             typename V,
             typename Score = void,
@@ -174,7 +197,7 @@ namespace TICL {
             typename = std::enable_if_t<alpaka::isDevice<TDev>>>
   class AssociationMap {
   private:
-    PortableCollection<AssociationElementsSoA<V, Score>, TDev> m_associations;
+    AssociationElements<TDev, V, Score> m_associations;
     device_buffer<TDev, int[]> m_offsets;
     size_t m_size;
 
@@ -186,7 +209,7 @@ namespace TICL {
     CollectionRefProdType collectionRefProds;
 
     using value_type = V;
-    static constexpr bool has_score = std::is_void_v<Score>;
+    static constexpr bool has_score = AssociationElements<V, Score>::has_score;
 
     template <typename T>
     struct Span {
@@ -226,7 +249,8 @@ namespace TICL {
         : m_associations(size, dev),
           m_offsets{make_device_buffer<int[]>(dev, nbins + 1)},
           m_size{nbins},
-          collectionRefProds(std::make_pair(id1, id2)) {}
+          collectionRefProds(std::make_pair(id1, id2)) {
+    }
 
     template <typename C1 = Collection1,
               typename C2 = Collection2,
@@ -242,7 +266,8 @@ namespace TICL {
         : m_associations(size, queue),
           m_offsets{make_device_buffer<int[]>(queue, nbins + 1)},
           m_size{nbins},
-          collectionRefProds(std::make_pair(id1, id2)) {}
+          collectionRefProds(std::make_pair(id1, id2)) {
+    }
 
     // Constructor for CMSSW-specific use
     template <typename C1 = Collection1,
@@ -259,7 +284,8 @@ namespace TICL {
         : m_associations(size, queue),
           m_offsets{make_device_buffer<int[]>(queue, nbins + 1)},
           m_size{nbins},
-          collectionRefProds(std::make_pair(edm::RefProd<C1>(handle1), edm::RefProd<C2>(handle2))) {}
+          collectionRefProds(std::make_pair(edm::RefProd<C1>(handle1), edm::RefProd<C2>(handle2))) {
+    }
 
     auto size() const { return m_size; }
 
@@ -328,22 +354,17 @@ namespace TICL {
     }
 
     // TODO: reduce all of this core repetition due to SFINAE
-    template <typename TQueue,
-              typename TAcc,
-              typename TFunc,
-              typename TScore = Score,
-              typename = std::enable_if_t<alpaka::isQueue<TQueue>>,
-              typename = std::enable_if_t<alpaka::isAccelerator<TAcc>>>
+    template <typename TFunc, typename TScore = Score>
     ALPAKA_FN_HOST std::enable_if_t<!std::is_void_v<TScore>, void> fill(
-        const int* indexes, const V* values, const Score* scores, size_t size, TFunc func, const TQueue& queue) {
-      auto dev = alpaka::getDev(queue);
+        const int* indexes, const V* values, const Score* scores, size_t size, TFunc func, const TDev& dev) {
       auto nbins_buffer = make_device_buffer<int>(dev);
       auto bin_buffer = make_device_buffer<int[]>(dev, size);
 
+      Queue queue(dev);
       const auto blocksize = 512;
       const auto gridsize = divide_up_by(size, blocksize);
-      const auto workdiv = make_workdiv<TAcc>(gridsize, blocksize);
-      alpaka::exec<TAcc>(queue,
+      const auto workdiv = make_workdiv<Acc1D>(gridsize, blocksize);
+      alpaka::exec<Acc1D>(queue,
                           workdiv,
                           KernelComputeAssociations<TFunc>{},
                           indexes,
@@ -358,7 +379,7 @@ namespace TICL {
       m_offsets = make_device_buffer<int[]>(dev, nbins + 1);
       auto sizes_buffer = make_device_buffer<int[]>(dev, nbins);
       alpaka::memset(queue, sizes_buffer, 0);
-      alpaka::exec<TAcc>(
+      alpaka::exec<Acc1D>(
           queue, workdiv, KernelComputeAssociationSizes{}, bin_buffer.data(), sizes_buffer.data(), size);
 
       // prepare for prefix scan
@@ -369,75 +390,9 @@ namespace TICL {
 
       const auto blocksize_multiblockscan = 1024;
       auto gridsize_multiblockscan = divide_up_by(nbins, blocksize_multiblockscan);  // think about the size
-      const auto workdiv_multiblockscan = make_workdiv<TAcc>(gridsize_multiblockscan, blocksize_multiblockscan);
+      const auto workdiv_multiblockscan = make_workdiv<Acc1D>(gridsize_multiblockscan, blocksize_multiblockscan);
       auto warp_size = alpaka::getPreferredWarpSize(dev);
-      alpaka::exec<TAcc>(queue,
-                         workdiv_multiblockscan,
-                         multiBlockPrefixScan<int>{},
-                         sizes_buffer.data(),
-                         m_offsets.data() + 1,
-                         nbins,
-                         gridsize_multiblockscan,
-                         block_counter.data(),
-                         warp_size);
-
-      auto temp_offsets = make_device_buffer<int[]>(queue, nbins + 1);
-      alpaka::memcpy(queue, temp_offsets, m_offsets);
-      alpaka::exec<TAcc>(queue,
-                         workdiv,
-                         KernelFillAssociator<TDev, V, Score, void, void>{},
-                         this->view(),
-                         bin_buffer.data(),
-                         values,
-                         scores,
-                         temp_offsets.data(),
-                         size);
-    }
-
-    template <typename TQueue,
-              typename TAcc,
-              typename TFunc,
-              typename TScore = Score,
-              typename = std::enable_if_t<alpaka::isQueue<TQueue>>,
-              typename = std::enable_if_t<alpaka::isAccelerator<TAcc>>>
-    ALPAKA_FN_HOST std::enable_if_t<std::is_void_v<TScore>, void> fill(
-        const int* indexes, const V* values, size_t size, TFunc func, const TQueue& queue) {
-      auto dev = alpaka::getDev(queue);
-      auto nbins_buffer = make_device_buffer<int>(dev);
-      auto bin_buffer = make_device_buffer<int[]>(dev, size);
-
-      const auto blocksize = 512;
-      const auto gridsize = divide_up_by(size, blocksize);
-      const auto workdiv = make_workdiv<TAcc>(gridsize, blocksize);
-      alpaka::exec<TAcc>(queue,
-                          workdiv,
-                          KernelComputeAssociations<TFunc>{},
-                          indexes,
-                          size,
-                          bin_buffer.data(),
-                          nbins_buffer.data(),
-                          func);
-
-      int nbins = 0;
-      alpaka::memcpy(queue, make_host_view<int>(nbins), nbins_buffer);
-      m_size = nbins;
-      m_offsets = make_device_buffer<int[]>(dev, nbins + 1);
-      auto sizes_buffer = make_device_buffer<int[]>(dev, nbins);
-      alpaka::memset(queue, sizes_buffer, 0);
-      alpaka::exec<TAcc>(
-          queue, workdiv, KernelComputeAssociationSizes{}, bin_buffer.data(), sizes_buffer.data(), size);
-
-      // prepare for prefix scan
-      auto block_counter = make_device_buffer<int32_t>(queue);
-      alpaka::memset(queue, block_counter, 0);
-
-      alpaka::memset(queue, m_offsets, 0);
-
-      const auto blocksize_multiblockscan = 1024;
-      auto gridsize_multiblockscan = divide_up_by(nbins, blocksize_multiblockscan);  // think about the size
-      const auto workdiv_multiblockscan = make_workdiv<TAcc>(gridsize_multiblockscan, blocksize_multiblockscan);
-      auto warp_size = alpaka::getPreferredWarpSize(dev);
-      alpaka::exec<TAcc>(queue,
+      alpaka::exec<Acc1D>(queue,
                           workdiv_multiblockscan,
                           multiBlockPrefixScan<int>{},
                           sizes_buffer.data(),
@@ -449,7 +404,68 @@ namespace TICL {
 
       auto temp_offsets = make_device_buffer<int[]>(queue, nbins + 1);
       alpaka::memcpy(queue, temp_offsets, m_offsets);
-      alpaka::exec<TAcc>(queue,
+      alpaka::exec<Acc1D>(queue,
+                          workdiv,
+                          KernelFillAssociator<TDev, V, Score, void, void>{},
+                          this->view(),
+                          bin_buffer.data(),
+                          values,
+                          scores,
+                          temp_offsets.data(),
+                          size);
+    }
+
+    template <typename TFunc, typename TScore = Score>
+    ALPAKA_FN_HOST std::enable_if_t<std::is_void_v<TScore>, void> fill(
+        const int* indexes, const V* values, size_t size, TFunc func, const TDev& dev) {
+      auto nbins_buffer = make_device_buffer<int>(dev);
+      auto bin_buffer = make_device_buffer<int[]>(dev, size);
+
+      Queue queue(dev);
+      const auto blocksize = 512;
+      const auto gridsize = divide_up_by(size, blocksize);
+      const auto workdiv = make_workdiv<Acc1D>(gridsize, blocksize);
+      alpaka::exec<Acc1D>(queue,
+                          workdiv,
+                          KernelComputeAssociations<TFunc>{},
+                          indexes,
+                          size,
+                          bin_buffer.data(),
+                          nbins_buffer.data(),
+                          func);
+
+      int nbins = 0;
+      alpaka::memcpy(queue, make_host_view<int>(nbins), nbins_buffer);
+      m_size = nbins;
+      m_offsets = make_device_buffer<int[]>(dev, nbins + 1);
+      auto sizes_buffer = make_device_buffer<int[]>(dev, nbins);
+      alpaka::memset(queue, sizes_buffer, 0);
+      alpaka::exec<Acc1D>(
+          queue, workdiv, KernelComputeAssociationSizes{}, bin_buffer.data(), sizes_buffer.data(), size);
+
+      // prepare for prefix scan
+      auto block_counter = make_device_buffer<int32_t>(queue);
+      alpaka::memset(queue, block_counter, 0);
+
+      alpaka::memset(queue, m_offsets, 0);
+
+      const auto blocksize_multiblockscan = 1024;
+      auto gridsize_multiblockscan = divide_up_by(nbins, blocksize_multiblockscan);  // think about the size
+      const auto workdiv_multiblockscan = make_workdiv<Acc1D>(gridsize_multiblockscan, blocksize_multiblockscan);
+      auto warp_size = alpaka::getPreferredWarpSize(dev);
+      alpaka::exec<Acc1D>(queue,
+                          workdiv_multiblockscan,
+                          multiBlockPrefixScan<int>{},
+                          sizes_buffer.data(),
+                          m_offsets.data() + 1,
+                          nbins,
+                          gridsize_multiblockscan,
+                          block_counter.data(),
+                          warp_size);
+
+      auto temp_offsets = make_device_buffer<int[]>(queue, nbins + 1);
+      alpaka::memcpy(queue, temp_offsets, m_offsets);
+      alpaka::exec<Acc1D>(queue,
                           workdiv,
                           KernelFillAssociator<TDev, V, Score, void, void>{},
                           this->view(),
@@ -459,31 +475,20 @@ namespace TICL {
                           size);
     }
 
-    template <typename TQueue,
-              typename TAcc,
-              typename TFunc,
-              typename TScore = Score,
-              typename = std::enable_if_t<alpaka::isQueue<TQueue>>,
-              typename = std::enable_if_t<alpaka::isAccelerator<TAcc>>>
-    ALPAKA_FN_HOST std::enable_if_t<!std::is_void_v<TScore>, void> fill(const int* assoc_ids,
-                                                                        int nbins,
-                                                                        const int* indexes,
-                                                                        const V* values,
-                                                                        const TScore* scores,
-                                                                        size_t size,
-                                                                        TFunc func,
-                                                                        const TQueue& queue) {
-      auto dev = alpaka::getDev(queue);
+    template <typename TFunc, typename TScore = Score>
+    ALPAKA_FN_HOST std::enable_if_t<!std::is_void_v<TScore>, void> fill(
+        const int* assoc_ids, int nbins, const int* indexes, const V* values, const TScore* scores, size_t size, TFunc func, const TDev& dev) {
       auto nbins_buffer = make_device_buffer<int>(dev);
 
+      Queue queue(dev);
       const auto blocksize = 512;
       const auto gridsize = divide_up_by(size, blocksize);
-      const auto workdiv = make_workdiv<TAcc>(gridsize, blocksize);
+      const auto workdiv = make_workdiv<Acc1D>(gridsize, blocksize);
 
       m_size = nbins;
       auto sizes_buffer = make_device_buffer<int[]>(dev, nbins);
       alpaka::memset(queue, sizes_buffer, 0);
-      alpaka::exec<TAcc>(queue, workdiv, KernelComputeAssociationSizes{}, assoc_ids, sizes_buffer.data(), size);
+      alpaka::exec<Acc1D>(queue, workdiv, KernelComputeAssociationSizes{}, assoc_ids, sizes_buffer.data(), size);
 
       // prepare for prefix scan
       auto block_counter = make_device_buffer<int32_t>(queue);
@@ -493,9 +498,9 @@ namespace TICL {
 
       const auto blocksize_multiblockscan = 1024;
       auto gridsize_multiblockscan = divide_up_by(nbins, blocksize_multiblockscan);  // think about the size
-      const auto workdiv_multiblockscan = make_workdiv<TAcc>(gridsize_multiblockscan, blocksize_multiblockscan);
+      const auto workdiv_multiblockscan = make_workdiv<Acc1D>(gridsize_multiblockscan, blocksize_multiblockscan);
       auto warp_size = alpaka::getPreferredWarpSize(dev);
-      alpaka::exec<TAcc>(queue,
+      alpaka::exec<Acc1D>(queue,
                           workdiv_multiblockscan,
                           multiBlockPrefixScan<int>{},
                           sizes_buffer.data(),
@@ -507,7 +512,7 @@ namespace TICL {
 
       auto temp_offsets = make_device_buffer<int[]>(queue, nbins + 1);
       alpaka::memcpy(queue, temp_offsets, m_offsets);
-      alpaka::exec<TAcc>(queue,
+      alpaka::exec<Acc1D>(queue,
                           workdiv,
                           KernelFillAssociator<TDev, V, Score, void, void>{},
                           this->view(),
@@ -518,30 +523,20 @@ namespace TICL {
                           size);
     }
 
-    template <typename TQueue,
-              typename TAcc,
-              typename TFunc,
-              typename TScore = Score,
-              typename = std::enable_if_t<alpaka::isQueue<TQueue>>,
-              typename = std::enable_if_t<alpaka::isAccelerator<TAcc>>>
-    ALPAKA_FN_HOST std::enable_if_t<std::is_void_v<TScore>, void> fill(const int* assoc_ids,
-                                                                       int nbins,
-                                                                       const int* indexes,
-                                                                       const V* values,
-                                                                       size_t size,
-                                                                       TFunc func,
-                                                                       const TQueue& queue) {
-      auto dev = alpaka::getDev(queue);
+    template <typename TFunc, typename TScore = Score>
+    ALPAKA_FN_HOST std::enable_if_t<std::is_void_v<TScore>, void> fill(
+        const int* assoc_ids, int nbins, const int* indexes, const V* values, size_t size, TFunc func, const TDev& dev) {
       auto nbins_buffer = make_device_buffer<int>(dev);
 
+      Queue queue(dev);
       const auto blocksize = 512;
       const auto gridsize = divide_up_by(size, blocksize);
-      const auto workdiv = make_workdiv<TAcc>(gridsize, blocksize);
+      const auto workdiv = make_workdiv<Acc1D>(gridsize, blocksize);
 
       m_size = nbins;
       auto sizes_buffer = make_device_buffer<int[]>(dev, nbins);
       alpaka::memset(queue, sizes_buffer, 0);
-      alpaka::exec<TAcc>(queue, workdiv, KernelComputeAssociationSizes{}, assoc_ids, sizes_buffer.data(), size);
+      alpaka::exec<Acc1D>(queue, workdiv, KernelComputeAssociationSizes{}, assoc_ids, sizes_buffer.data(), size);
 
       // prepare for prefix scan
       auto block_counter = make_device_buffer<int32_t>(queue);
@@ -551,9 +546,9 @@ namespace TICL {
 
       const auto blocksize_multiblockscan = 1024;
       auto gridsize_multiblockscan = divide_up_by(nbins, blocksize_multiblockscan);  // think about the size
-      const auto workdiv_multiblockscan = make_workdiv<TAcc>(gridsize_multiblockscan, blocksize_multiblockscan);
+      const auto workdiv_multiblockscan = make_workdiv<Acc1D>(gridsize_multiblockscan, blocksize_multiblockscan);
       auto warp_size = alpaka::getPreferredWarpSize(dev);
-      alpaka::exec<TAcc>(queue,
+      alpaka::exec<Acc1D>(queue,
                           workdiv_multiblockscan,
                           multiBlockPrefixScan<int>{},
                           sizes_buffer.data(),
@@ -565,7 +560,7 @@ namespace TICL {
 
       auto temp_offsets = make_device_buffer<int[]>(queue, nbins + 1);
       alpaka::memcpy(queue, temp_offsets, m_offsets);
-      alpaka::exec<TAcc>(queue,
+      alpaka::exec<Acc1D>(queue,
                           workdiv,
                           KernelFillAssociator<TDev, V, Score, void, void>{},
                           this->view(),
@@ -576,4 +571,131 @@ namespace TICL {
     }
   };
 
-}  // namespace TICL
+  template <typename V,
+            typename Score,
+            typename TFunc,
+            typename TDev,
+            typename = std::enable_if_t<alpaka::isDevice<TDev>>,
+            std::enable_if_t<!std::is_void_v<Score>, int> = 0>
+  ALPAKA_FN_HOST AssociationMap<TDev, V, Score> CreateAssociationMap(
+      const int* indexes, const V* values, const Score* scores, size_t size, TFunc func, const TDev& dev) {
+    auto nbins_buffer = make_device_buffer<int>(dev);
+    auto bin_buffer = make_device_buffer<int[]>(dev, size);
+
+    Queue queue(dev);
+    const auto blocksize = 512;
+    const auto gridsize = divide_up_by(size, blocksize);
+    const auto workdiv = make_workdiv<Acc1D>(gridsize, blocksize);
+    alpaka::exec<Acc1D>(
+        queue, workdiv, KernelComputeAssociations<TFunc>{}, indexes, size, bin_buffer.data(), nbins_buffer.data(), func);
+
+    auto nbins = *nbins_buffer.data();
+    auto sizes_buffer = make_device_buffer<int[]>(dev, nbins);
+    alpaka::memset(queue, sizes_buffer, 0);
+    alpaka::exec<Acc1D>(queue, workdiv, KernelComputeAssociationSizes{}, bin_buffer.data(), sizes_buffer.data(), size);
+
+    AssociationMap<TDev, V, Score> assoc_map(size, nbins + 1, dev);
+
+    // prepare for prefix scan
+    auto block_counter = make_device_buffer<int32_t>(queue);
+    alpaka::memset(queue, block_counter, 0);
+
+    alpaka::memset(queue, assoc_map.offsets(), 0);
+
+    const auto blocksize_multiblockscan = 1;
+    auto gridsize_multiblockscan = divide_up_by(nbins, blocksize_multiblockscan);  // think about the size
+    const auto workdiv_multiblockscan = make_workdiv<Acc1D>(gridsize_multiblockscan, blocksize_multiblockscan);
+    auto warp_size = alpaka::getPreferredWarpSize(dev);
+    alpaka::exec<Acc1D>(queue,
+                        workdiv_multiblockscan,
+                        multiBlockPrefixScan<int>{},
+                        sizes_buffer.data(),
+                        assoc_map.offsets().data() + 1,
+                        nbins,
+                        gridsize_multiblockscan,
+                        block_counter.data(),
+                        warp_size);
+
+    auto temp_offsets = make_device_buffer<int[]>(queue, nbins + 1);
+    alpaka::memcpy(queue, temp_offsets, assoc_map.offsets());
+    alpaka::exec<Acc1D>(queue,
+                        workdiv,
+                        KernelFillAssociator<TDev, V, Score, void, void>{},
+                        assoc_map.view(),
+                        bin_buffer.data(),
+                        values,
+                        scores,
+                        temp_offsets.data(),
+                        size);
+
+    return assoc_map;
+  }
+
+  template <typename V,
+            typename TFunc,
+            typename TDev,
+            typename = std::enable_if_t<alpaka::isDevice<TDev>>>
+  ALPAKA_FN_HOST AssociationMap<TDev, V> CreateAssociationMap(
+      const int* indexes, const V* values, size_t size, TFunc func, const TDev& dev) {
+    auto nbins_buffer = make_device_buffer<int>(dev);
+    auto bin_buffer = make_device_buffer<int[]>(dev, size);
+
+    Queue queue(dev);
+    const auto blocksize = 512;
+    const auto gridsize = divide_up_by(size, blocksize);
+    const auto workdiv = make_workdiv<Acc1D>(gridsize, blocksize);
+    alpaka::exec<Acc1D>(
+        queue, workdiv, KernelComputeAssociations<TFunc>{}, indexes, size, bin_buffer.data(), nbins_buffer.data(), func);
+
+    auto nbins = *nbins_buffer.data();
+    auto sizes_buffer = make_device_buffer<int[]>(dev, nbins);
+    alpaka::memset(queue, sizes_buffer, 0);
+    alpaka::exec<Acc1D>(queue, workdiv, KernelComputeAssociationSizes{}, bin_buffer.data(), sizes_buffer.data(), size);
+
+    AssociationMap<TDev, V> assoc_map(size, nbins + 1, dev);
+
+    // prepare for prefix scan
+    auto block_counter = make_device_buffer<int32_t>(queue);
+    alpaka::memset(queue, block_counter, 0);
+
+    const auto blocksize_multiblockscan = 1024;
+    auto gridsize_multiblockscan = divide_up_by(size, blocksize_multiblockscan);  // think about the size
+    const auto workdiv_multiblockscan = make_workdiv<Acc1D>(gridsize_multiblockscan, blocksize_multiblockscan);
+    auto warp_size = alpaka::getPreferredWarpSize(dev);
+    alpaka::exec<Acc1D>(queue,
+                        workdiv_multiblockscan,
+                        multiBlockPrefixScan<int>{},
+                        sizes_buffer.data(),
+                        assoc_map.offsets().data() + 1,
+                        size,
+                        gridsize_multiblockscan,
+                        block_counter.data(),
+                        warp_size);
+
+    auto temp_offsets = make_device_buffer<int[]>(queue, nbins + 1);
+    alpaka::memcpy(queue, temp_offsets, assoc_map.offsets());
+    alpaka::exec<Acc1D>(queue,
+                        workdiv,
+                        KernelFillAssociator<TDev, V, void, void, void>{},
+                        assoc_map.view(),
+                        bin_buffer.data(),
+                        values,
+                        temp_offsets.data(),
+                        size);
+
+    return assoc_map;
+  }
+
+  /*
+  template <typename V, typename TFunc, typename TQueue, typename = std::enable_if_t<alpaka::isQueue<TQueue>>>
+  ALPAKA_FN_HOST AssociationMap<TDev, V> CreateAssociationMap(const int* indexes,
+                                                              const V* values,
+                                                              size_t size,
+                                                              const TFunc* func,
+                                                              const TQueue& queue) {
+      auto device = alpaka::getDevs(queue);
+      return CreateAssociationMap(indexes, values, size, func, device);
+  }
+  */
+
+}  // namespace ALPAKA_ACCELERATOR_NAMESPACE
