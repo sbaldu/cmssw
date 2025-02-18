@@ -25,7 +25,8 @@ vertexAnalysis = DQMEDAnalyzer('PrimaryVertexAnalyzer4PUSlimmed',
                                 vertexRecoCollections = cms.VInputTag("offlinePrimaryVertices",
                                                                       "offlinePrimaryVerticesWithBS",
                                                                       "selectedOfflinePrimaryVertices",
-                                                                      "selectedOfflinePrimaryVerticesWithBS"
+                                                                      "selectedOfflinePrimaryVerticesWithBS",
+                                                                      "cluesteringVertexCollection"
                                                                       ),
                                nPUbins = cms.uint32(130)
 )
@@ -108,6 +109,7 @@ _vertexRecoCollectionsTiming = cms.VInputTag("offlinePrimaryVertices",
                                              "selectedOfflinePrimaryVerticesWithBS",
                                              "offlinePrimaryVertices4D",
                                              "selectedOfflinePrimaryVertices4D",
+                                             "cluesteringVertexCollection"
                                              )
 selectedOfflinePrimaryVertices4D = selectedOfflinePrimaryVertices.clone(src = cms.InputTag("offlinePrimaryVertices4D"))
 

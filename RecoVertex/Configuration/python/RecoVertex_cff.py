@@ -15,7 +15,12 @@ from RecoJets.JetProducers.caloJetsForTrk_cff import *
 
 unsortedOfflinePrimaryVertices=offlinePrimaryVertices.clone()
 offlinePrimaryVertices=sortedPrimaryVertices.clone(
+    # cambia la collezione
     vertices="unsortedOfflinePrimaryVertices", 
+    particles="trackRefsForJetsBeforeSorting"
+)
+clueOfflinePrimaryVertices=sortedPrimaryVertices.clone(
+    vertices="cluesteringVertexCollection",
     particles="trackRefsForJetsBeforeSorting"
 )
 offlinePrimaryVerticesWithBS=sortedPrimaryVertices.clone(
@@ -29,6 +34,7 @@ trackWithVertexRefSelectorBeforeSorting = trackWithVertexRefSelector.clone(
 )
 trackRefsForJetsBeforeSorting = trackRefsForJets.clone(src="trackWithVertexRefSelectorBeforeSorting")
 
+from RecoVertex.PixelVertexFinding.clueVertexProducer_cfi import *
 
 vertexrecoTask = cms.Task(unsortedOfflinePrimaryVertices,
                           trackWithVertexRefSelectorBeforeSorting,
@@ -37,7 +43,9 @@ vertexrecoTask = cms.Task(unsortedOfflinePrimaryVertices,
                           offlinePrimaryVerticesWithBS,
                           generalV0Candidates,
                           caloJetsForTrkTask,
-                          inclusiveVertexingTask
+                          inclusiveVertexingTask,
+                          clueOfflinePrimaryVertices,
+                          clueVertexProducer
                           )
 vertexreco = cms.Sequence(vertexrecoTask)
 

@@ -5,6 +5,7 @@ from Validation.RecoVertex.PrimaryVertexAnalyzer4PUSlimmed_cfi import *
 
 # Rely on tracksValidationTruth sequence being already run
 vertexValidation = cms.Sequence(v0Validator
+                                #* clueVertexValidator
                                 * vertexAnalysisSequence)
 
 
