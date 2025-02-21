@@ -3,8 +3,11 @@
 
 #include "DataFormats/Portable/interface/PortableHostCollection.h"
 #include "DataFormats/ClusterSoA/interface/CaloClusterSoA.h"
+#include "HeterogeneousCore/AlpakaInterface/interface/config.h"
 
-template <typename TDev>
-using CaloClusterSoAHostCollection = PortableHostCollection3<Position4D_Energy_SoA, Position4D_Energy_Errors_SoA, CaloClusterExtra_SoA<TDev>>;
+using ALPAKA_ACCELERATOR_NAMESPACE::Device;
 
-#endif 
+using CaloClusterSoAHostCollection =
+    PortableHostCollection3<Position4D_Energy_SoA, Position4D_Energy_Errors_SoA, CaloClusterExtra_SoA<Device>>;
+
+#endif

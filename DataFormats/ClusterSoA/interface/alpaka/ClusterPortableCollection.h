@@ -14,9 +14,8 @@
 namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
   // However, if you have multiple SoAs to unify, use PortableMultiCollection:
-  template <typename TDev>
   using CaloClusterSoACollection =
-      PortableCollection3<Position4D_Energy_SoA, Position4D_Energy_Errors_SoA, CaloClusterExtra_SoA<TDev>>;
+      PortableCollection3<Position4D_Energy_SoA, Position4D_Energy_Errors_SoA, CaloClusterExtra_SoA<Device>>;
 
 }  // namespace ALPAKA_ACCELERATOR_NAMESPACE
 

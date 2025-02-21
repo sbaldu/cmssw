@@ -65,6 +65,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     void produce(device::Event& iEvent, device::EventSetup const&) override {
       // 1) Read the input collection from CPU-based input token
       //    getHandle(...) returns a edm::Handle<std::vector<reco::CaloCluster>>
+      /*
       auto clusterHandle = iEvent.getHandle(srcToken_);
       if (not clusterHandle.isValid()) {
         // If needed, handle the error gracefully
@@ -144,6 +145,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       // (Optional) debugging
       // std::cout << "[CaloClusterSoAProducer] Filled " << nClusters << " cluster(s)\n";
 
+      */
       // 5) Emplace the SoA collection into the event
       //    The putToken_ knows the product + instance label
       iEvent.emplace(putToken_, std::move(outCollection));
