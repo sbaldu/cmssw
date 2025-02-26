@@ -7,6 +7,7 @@ from RecoVertex.PrimaryVertexProducer.OfflinePrimaryVertices_cfi import *
 from RecoVertex.PrimaryVertexProducer.OfflinePrimaryVerticesWithBS_cfi import *
 from RecoVertex.V0Producer.generalV0Candidates_cff import *
 from RecoVertex.AdaptiveVertexFinder.inclusiveVertexing_cff import *
+from RecoVertex.PixelVertexFinding.clueVertices_cfi import *
 
 from CommonTools.RecoAlgos.TrackWithVertexRefSelector_cfi import *
 from RecoJets.JetProducers.TracksForJets_cff import *
@@ -37,7 +38,8 @@ vertexrecoTask = cms.Task(unsortedOfflinePrimaryVertices,
                           offlinePrimaryVerticesWithBS,
                           generalV0Candidates,
                           caloJetsForTrkTask,
-                          inclusiveVertexingTask
+                          inclusiveVertexingTask,
+                          clueVertices
                           )
 vertexreco = cms.Sequence(vertexrecoTask)
 
@@ -55,7 +57,8 @@ from RecoVertex.Configuration.RecoVertex_phase2_timing_cff import (tpClusterProd
                                                                   trackWithVertexRefSelectorBeforeSorting4D,
                                                                   trackRefsForJetsBeforeSorting4D,
                                                                   offlinePrimaryVertices4D,
-                                                                  offlinePrimaryVertices4DWithBS)
+                                                                  offlinePrimaryVertices4DWithBS,
+                                                                  )
 
 _phase2_tktiming_vertexrecoTask = cms.Task( vertexrecoTask.copy() ,
                                             tpClusterProducer ,
@@ -66,6 +69,7 @@ _phase2_tktiming_vertexrecoTask = cms.Task( vertexrecoTask.copy() ,
                                             trackRefsForJetsBeforeSorting4D,
                                             offlinePrimaryVertices4D,
                                             offlinePrimaryVertices4DWithBS,
+                                            clueVertices
                                             )
 
 _phase2_tktiming_layer_vertexrecoTask = cms.Task( _phase2_tktiming_vertexrecoTask.copy() ,
