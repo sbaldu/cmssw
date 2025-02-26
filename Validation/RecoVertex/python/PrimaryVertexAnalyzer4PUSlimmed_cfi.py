@@ -25,7 +25,8 @@ vertexAnalysis = DQMEDAnalyzer('PrimaryVertexAnalyzer4PUSlimmed',
                                 vertexRecoCollections = cms.VInputTag("offlinePrimaryVertices",
                                                                       "offlinePrimaryVerticesWithBS",
                                                                       "selectedOfflinePrimaryVertices",
-                                                                      "selectedOfflinePrimaryVerticesWithBS"
+                                                                      "selectedOfflinePrimaryVerticesWithBS",
+                                                                      "clueVertices"
                                                                       ),
                                nPUbins = cms.uint32(130)
 )
