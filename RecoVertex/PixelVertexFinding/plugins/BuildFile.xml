@@ -36,3 +36,14 @@
   <flags ALPAKA_BACKENDS="1"/>
   <flags EDM_PLUGIN="1"/>
 </library>
+
+<library file="alpaka/*.dev.cpp" name="CLUEVertexProducer">
+  <use name="alpaka"/>
+  <use name="DataFormats/Portable"/>
+  <use name="DataFormats/TrackSoA"/>
+  <use name="DataFormats/VertexSoA"/>
+  <use name="HeterogeneousCore/AlpakaCore"/>
+  <use name="HeterogeneousCore/AlpakaInterface"/>
+  <flags ALPAKA_BACKENDS="1"/>
+  <flags EDM_PLUGIN="1"/>
+</library>
