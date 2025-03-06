@@ -162,7 +162,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       
       ZVertexSoACollection vertices({{10,10}}, event.queue());
 
-      event.emplace(token_RecoVertex, {{10,10}}, event.queue());
+      event.emplace(token_RecoVertex, std::move(vertices));
       /*std::vector<int> results(2 * n_points);
        
       const auto dev_acc = alpaka::getDevByIdx(alpaka::Platform<Acc1D>{}, 0u);
