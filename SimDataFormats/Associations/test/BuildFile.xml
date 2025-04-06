@@ -1,0 +1,8 @@
+<bin file="alpaka/AssociationMap_t.dev.cc">
+  <use name="catch2"/>
+  <use name="SimDataFormats/Associations"/>
+  <use name="DataFormats/portable"/>
+  <use name="Boost"/>
+  <use name="Alpaka"/>
+  <flags ALPAKA_BACKENDS="cuda"/>
+</bin>
