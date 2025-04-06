@@ -33,6 +33,17 @@ public:
       : buffer_{cms::alpakatools::make_device_buffer<std::byte[]>(device, Layout::computeDataSize(elements))},
         layout_{buffer_->data(), elements},
         view_{layout_} {
+    static_assert(std::is_constructible_v<T, std::byte*, int32_t>);
+    // Alpaka set to a default alignment of 128 bytes defining ALPAKA_DEFAULT_HOST_MEMORY_ALIGNMENT=128
+    assert(reinterpret_cast<uintptr_t>(buffer_->data()) % Layout::alignment == 0);
+  }
+
+  template <typename... TSizes>
+  PortableDeviceCollection(TDev const& device, TSizes... sizes)
+      : buffer_{cms::alpakatools::make_device_buffer<std::byte[]>(device, Layout::computeDataSize((sizes + ...)))},
+        layout_{buffer_->data(), sizes...},
+        view_{layout_} {
+	static_assert(std::is_constructible_v<T, std::byte*, TSizes...>);
     // Alpaka set to a default alignment of 128 bytes defining ALPAKA_DEFAULT_HOST_MEMORY_ALIGNMENT=128
     assert(reinterpret_cast<uintptr_t>(buffer_->data()) % Layout::alignment == 0);
   }
@@ -42,6 +53,17 @@ public:
       : buffer_{cms::alpakatools::make_device_buffer<std::byte[]>(queue, Layout::computeDataSize(elements))},
         layout_{buffer_->data(), elements},
         view_{layout_} {
+    static_assert(std::is_constructible_v<T, std::byte*, int32_t>);
+    // Alpaka set to a default alignment of 128 bytes defining ALPAKA_DEFAULT_HOST_MEMORY_ALIGNMENT=128
+    assert(reinterpret_cast<uintptr_t>(buffer_->data()) % Layout::alignment == 0);
+  }
+
+  template <typename TQueue, typename = std::enable_if_t<alpaka::isQueue<TQueue>>, typename... TSizes>
+  PortableDeviceCollection(TQueue const& queue, TSizes... sizes)
+      : buffer_{cms::alpakatools::make_device_buffer<std::byte[]>(queue, Layout::computeDataSize((sizes + ...)))},
+        layout_{buffer_->data(), sizes...},
+        view_{layout_} {
+	static_assert(std::is_constructible_v<T, std::byte*, TSizes...>);
     // Alpaka set to a default alignment of 128 bytes defining ALPAKA_DEFAULT_HOST_MEMORY_ALIGNMENT=128
     assert(reinterpret_cast<uintptr_t>(buffer_->data()) % Layout::alignment == 0);
   }
