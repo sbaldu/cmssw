@@ -25,7 +25,7 @@
 #include "DataFormats/VertexSoA/interface/alpaka/ZVertexSoACollection.h"
 #include "DataFormats/VertexSoA/interface/ZVertexDevice.h"
 
-// #include "CLUEstering/CLUEstering.hpp"
+#include "./CLUE/include/CLUEstering/CLUEstering.hpp"
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
@@ -40,11 +40,11 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       trackCollName(conf.getParameter<edm::InputTag>("TrackCollection")),
       token_Tracks(consumes(trackCollName)),
       //token_BeamSpot(consumes(conf.getParameter<edm::InputTag>("beamSpot"))),
-      token_RecoVertex(produces()) {
+      token_RecoVertex(produces("CLUEVertex")) {
   // Register my product
 
   // Setup shop
-  std::string finder = conf.getParameter<std::string>("Finder");  // DivisiveVertexFinder
+  // std::string finder = conf.getParameter<std::string>("Finder");  // DivisiveVertexFinder
   bool useError = conf.getParameter<bool>("UseError");            // true
   bool wtAverage = conf.getParameter<bool>("WtAverage");          // true
   double zOffset = conf.getParameter<double>("ZOffset");          // 5.0 sigma
@@ -66,6 +66,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
   }
 
   }
+   ~CLUEVertexProducer() override = default;
    static void fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
 
 
@@ -141,33 +142,58 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
   descriptions.addWithDefaultLabel(desc);
 
 
-  //descriptions.add("clueVertices", desc);
+  //descriptions.add("CLUEVertex", desc);
 
 
 }
     void produce(edm::StreamID sid, device::Event& event, device::EventSetup const&) const override {
 	
-      // edm::Handle<reco::BeamSpot> bsHandle;
+      auto const& tracks = event.get(token_Tracks);
       // const auto& bsHandle = event.get(token_BeamSpot);
       std::cout << "Pippo \n";
-      // Putting empty vertex into the event as a first step
-      auto vertexes = std::make_unique<reco::VertexCollection>();
       
+      auto const& tracks_view = tracks.view();
+      Queue queue = event.queue();
+      int maxVertices = 10;
+      const auto maxTracks = tracks_view.metadata().size();
+      const uint32_t nTracks = tracks_view.nTracks();
+      ZVertexSoACollection vertices({{maxVertices, maxTracks}}, queue);
+      auto data = vertices.view();
+      auto trkdata = vertices.view<reco::ZVertexTracksSoA>();
+
+      // To run CLUEAlgoAlpaka<dim>::make_clusters() I need PointsSoA<dim>
+      
+      // auto tracks_h = cms::alpakatools::CopyToHost<TkSoADevice>::copyAsync(queue, tracks);
+
+      std::vector<float> coords;
+      std::vector<int> results(nTracks);
+      for (auto idx = 0u; idx < nTracks; ++idx) {
+        coords.push_back(reco::zip(tracks_view, idx));
+      }
+
+      const auto dev_acc = alpaka::getDevByIdx(alpaka::Platform<Acc1D>{}, 0u);
+      PointsSoA<1> h_points(coords.data(), results.data(), PointInfo<1>{nTracks});
+      PointsAlpaka<1> d_points(queue, nTracks);
+
+      CLUEAlgoAlpaka<1> algo(m_dc, m_rhoc, m_dm, m_pPBin, queue);
+        
+      const std::size_t block_size{256};
+      algo.make_clusters(h_points, d_points, FlatKernel{.5f}, queue, block_size);
+
+
       AlgebraicSymMatrix33 we;
       we(0,0) = 10000;
       we(1,1) = 10000;
       we(2,2) = 10000;
 
-      // auto vertices = std::make_unique<ZVertexSoACollection>({{10,10}}, event.queue());
-      
-      ZVertexSoACollection vertices({{10,10}}, event.queue());
-
       event.emplace(token_RecoVertex, std::move(vertices));
+
+
       /*std::vector<int> results(2 * n_points);
        
       const auto dev_acc = alpaka::getDevByIdx(alpaka::Platform<Acc1D>{}, 0u);
 
-      PointsSoA<2> h_points(coords.data(), results.data(), PointInfo<2>{n_points});
+      PointsSoA<1> h_points(coords.data(), results.data(), PointInfo<1>{n_points});
       PointsAlpaka<2> d_points(queue_, n_points);
 
       CLUEAlgoAlpaka<2> algo(m_dc, m_rhoc, m_dm, m_pPBin, event.queue());
