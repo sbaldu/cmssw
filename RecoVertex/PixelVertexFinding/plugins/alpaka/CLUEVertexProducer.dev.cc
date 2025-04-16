@@ -148,27 +148,29 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 }
     void produce(edm::StreamID sid, device::Event& event, device::EventSetup const&) const override {
 	
-      auto const& tracks = event.get(token_Tracks);
+      auto const& tracks_d = event.get(token_Tracks);
       // const auto& bsHandle = event.get(token_BeamSpot);
       std::cout << "Pippo \n";
       
-      auto const& tracks_view = tracks.view();
+      auto const& tracks_d_view = tracks_d.view();
       Queue queue = event.queue();
       int maxVertices = 10;
-      const auto maxTracks = tracks_view.metadata().size();
-      const uint32_t nTracks = tracks_view.nTracks();
+      const auto maxTracks = tracks_d_view.metadata().size();
+      const uint32_t nTracks = tracks_d_view.nTracks();
       ZVertexSoACollection vertices({{maxVertices, maxTracks}}, queue);
       auto data = vertices.view();
       auto trkdata = vertices.view<reco::ZVertexTracksSoA>();
 
       // To run CLUEAlgoAlpaka<dim>::make_clusters() I need PointsSoA<dim>
       
-      // auto tracks_h = cms::alpakatools::CopyToHost<TkSoADevice>::copyAsync(queue, tracks);
+      // Copying from device to host
+      TracksHost<pixelTopology::Phase1> tracks_h(queue);
+      alpaka::memcpy(queue, tracks_h.buffer(), tracks_d.buffer()); 
 
       std::vector<float> coords;
       std::vector<int> results(nTracks);
       for (auto idx = 0u; idx < nTracks; ++idx) {
-        coords.push_back(reco::zip(tracks_view, idx));
+        coords.push_back(reco::zip(tracks_h.view(), idx));
       }
 
       const auto dev_acc = alpaka::getDevByIdx(alpaka::Platform<Acc1D>{}, 0u);
