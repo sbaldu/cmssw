@@ -24,7 +24,7 @@
   <flags EDM_PLUGIN="1"/>
 </library>
 
-<library file="alpaka/*.cc" name="RecoPixelVertexingPixelVertexFindingPluginsPortable">
+<library file="alpaka/PixelVertexProducerAlpaka.cc alpaka/vertexFinder.dev.cc" name="RecoPixelVertexingPixelVertexFindingPluginsPortable">
   <use name="alpaka"/>
   <use name="DataFormats/Portable"/>
   <use name="DataFormats/TrackSoA"/>
@@ -37,13 +37,13 @@
   <flags EDM_PLUGIN="1"/>
 </library>
 
-<library file="alpaka/*.dev.cpp" name="CLUEVertexProducer">
+<library file="alpaka/CLUEVertexProducer.dev.cc" name="CLUEVertexProducer">
   <use name="alpaka"/>
   <use name="DataFormats/Portable"/>
   <use name="DataFormats/TrackSoA"/>
   <use name="DataFormats/VertexSoA"/>
   <use name="HeterogeneousCore/AlpakaCore"/>
   <use name="HeterogeneousCore/AlpakaInterface"/>
-  <flags ALPAKA_BACKENDS="1"/>
+  <flags ALPAKA_BACKENDS="cuda"/>
   <flags EDM_PLUGIN="1"/>
 </library>

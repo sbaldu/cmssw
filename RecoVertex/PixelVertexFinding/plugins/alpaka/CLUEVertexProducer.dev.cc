@@ -12,6 +12,7 @@
 #include "HeterogeneousCore/AlpakaCore/interface/alpaka/EventSetup.h"
 #include "HeterogeneousCore/AlpakaCore/interface/alpaka/EDPutToken.h"
 #include "HeterogeneousCore/AlpakaCore/interface/alpaka/ESGetToken.h"
+#include "HeterogeneousCore/AlpakaCore/interface/alpaka/MakerMacros.h"
 #include "FWCore/ParameterSet/interface/ParameterSetDescription.h"
 
 #include "FWCore/ParameterSet/interface/ConfigurationDescriptions.h"
@@ -33,7 +34,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
    using TkSoADevice = TracksSoACollection<pixelTopology::Phase1>;
    public: 
     CLUEVertexProducer(edm::ParameterSet const& conf)
-	: verbose_(conf.getParameter<int>("Verbosity")),
+	: EDProducer(conf), 
+      verbose_(conf.getParameter<int>("Verbosity")),
       // 1.0 GeV
       ptMin_(conf.getParameter<double>("PtMin")),
       method2(conf.getParameter<bool>("Method2")),
@@ -173,9 +175,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         coords.push_back(reco::zip(tracks_h.view(), idx));
       }
 
-      const auto dev_acc = alpaka::getDevByIdx(alpaka::Platform<Acc1D>{}, 0u);
       PointsSoA<1> h_points(coords.data(), results.data(), PointInfo<1>{nTracks});
-      PointsAlpaka<1> d_points(queue, nTracks);
+      clue::PointsAlpaka<1, Device> d_points(queue, nTracks);
 
       CLUEAlgoAlpaka<1> algo(m_dc, m_rhoc, m_dm, m_pPBin, queue);
         
@@ -281,9 +282,9 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
   const double ptMin_;
   const bool method2;
   const edm::InputTag trackCollName;
-  const device::EDGetToken<TkSoADevice> token_Tracks;
+  device::EDGetToken<TkSoADevice> token_Tracks;
   // const device::EDGetToken<reco::BeamSpot> token_BeamSpot;
-  const device::EDPutToken<ZVertexSoACollection> token_RecoVertex;
+  device::EDPutToken<ZVertexSoACollection> token_RecoVertex;
     // Parameters for CLUEAlgoAlpaka
     float m_dc{1.5f}; // Side length of box to calculate density
     float m_rhoc{10.f}; // Minimum energy density to NOT be an outlier 
@@ -293,5 +294,4 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
   };
 }
 
-#include "HeterogeneousCore/AlpakaCore/interface/alpaka/MakerMacros.h"
-  DEFINE_FWK_ALPAKA_MODULE(CLUEVertexProducer);
+DEFINE_FWK_ALPAKA_MODULE(CLUEVertexProducer);
