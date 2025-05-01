@@ -166,7 +166,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       // To run CLUEAlgoAlpaka<dim>::make_clusters() I need PointsSoA<dim>
       
       // Copying from device to host
-      TracksHost<pixelTopology::Phase1> tracks_h(queue);
+/*      TracksHost<pixelTopology::Phase1> tracks_h(queue);
       alpaka::memcpy(queue, tracks_h.buffer(), tracks_d.buffer()); 
 
       std::vector<float> coords;
@@ -188,7 +188,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       we(0,0) = 10000;
       we(1,1) = 10000;
       we(2,2) = 10000;
-
+*/
       event.emplace(token_RecoVertex, std::move(vertices));
 
 
