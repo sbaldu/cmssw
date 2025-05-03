@@ -27,6 +27,7 @@
 #include "DataFormats/VertexSoA/interface/ZVertexDevice.h"
 
 #include "./CLUE/include/CLUEstering/CLUEstering.hpp"
+#include "./clueVertexFinder.h"
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
@@ -166,7 +167,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       // To run CLUEAlgoAlpaka<dim>::make_clusters() I need PointsSoA<dim>
       
       // Copying from device to host
-/*      TracksHost<pixelTopology::Phase1> tracks_h(queue);
+      TracksHost<pixelTopology::Phase1> tracks_h(queue);
       alpaka::memcpy(queue, tracks_h.buffer(), tracks_d.buffer()); 
 
       std::vector<float> coords;
@@ -175,6 +176,17 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         coords.push_back(reco::zip(tracks_h.view(), idx));
       }
 
+      clue::PointsHost<1> h_points(queue, nTracks, coords, results);
+      clue::PointsDevice<1, Device> d_points(queue, nTracks);
+
+      clueVertexFinder::Producer<1, pixelTopology::Phase1> clusterer (m_dc, m_rhoc, m_dm, m_pPBin, m_wtAvg);
+      clusterer.makeClusters(h_points, d_points, queue);
+
+      auto my_clusters = std::span<const int>{results.data(), nTracks};
+      auto isSeed = std::span<const int>(results.data() + nTracks, nTracks);
+
+
+/*
       PointsSoA<1> h_points(coords.data(), results.data(), PointInfo<1>{nTracks});
       clue::PointsAlpaka<1, Device> d_points(queue, nTracks);
 
@@ -191,17 +203,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 */
       event.emplace(token_RecoVertex, std::move(vertices));
 
-
-      /*std::vector<int> results(2 * n_points);
-       
-      const auto dev_acc = alpaka::getDevByIdx(alpaka::Platform<Acc1D>{}, 0u);
-
-      PointsSoA<1> h_points(coords.data(), results.data(), PointInfo<1>{n_points});
-      PointsAlpaka<2> d_points(queue_, n_points);
-
-      CLUEAlgoAlpaka<2> algo(m_dc, m_rhoc, m_dm, m_pPBin, event.queue());
-
-      algo.make_clusters(h_points, d_points, FlatKernel{.5f}, event.queue());
+      /* 
 
       // Now I need to figure out how to convert the clusters into vertexes and then put them in the event
       // Look at PixelVertexProducer.cc
