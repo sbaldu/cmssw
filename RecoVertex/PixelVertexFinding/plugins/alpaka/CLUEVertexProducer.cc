@@ -26,7 +26,6 @@
 #include "DataFormats/VertexSoA/interface/alpaka/ZVertexSoACollection.h"
 #include "DataFormats/VertexSoA/interface/ZVertexDevice.h"
 
-#include "./CLUE/include/CLUEstering/CLUEstering.hpp"
 #include "./clueVertexFinder.h"
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE {
@@ -152,6 +151,19 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     void produce(edm::StreamID sid, device::Event& event, device::EventSetup const&) const override {
 	
       auto const& tracks_d = event.get(token_Tracks);
+      /* It's layout is:
+             SOA_COLUMN(Quality, quality),
+             SOA_COLUMN(float, chi2),
+             SOA_COLUMN(int8_t, nLayers),
+             SOA_COLUMN(float, eta),
+             SOA_COLUMN(float, pt),
+             // state at the beam spot: {phi, tip, 1/pt, cotan(theta), zip}
+             SOA_EIGEN_COLUMN(Vector5f, state),
+             SOA_EIGEN_COLUMN(Vector15f, covariance),
+             SOA_SCALAR(int, nTracks),
+             SOA_SCALAR(HitContainer, hitIndices),
+             SOA_SCALAR(HitContainer, detIndices)
+      */
       // const auto& bsHandle = event.get(token_BeamSpot);
       std::cout << "Pippo \n";
       
@@ -160,12 +172,11 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       int maxVertices = 10;
       const auto maxTracks = tracks_d_view.metadata().size();
       const uint32_t nTracks = tracks_d_view.nTracks();
+
       ZVertexSoACollection vertices({{maxVertices, maxTracks}}, queue);
       auto data = vertices.view();
-      auto trkdata = vertices.view<reco::ZVertexTracksSoA>();
-
-      // To run CLUEAlgoAlpaka<dim>::make_clusters() I need PointsSoA<dim>
-      
+      auto trkdata = vertices.view<reco::ZVertexTracksSoA>(); // access the data in the ZVertexTracksSoA Layout
+      auto vrtxdata = vertices.view<reco::ZVertexSoA>(); // access the data in the ZVertexSoA Layout
       // Copying from device to host
       TracksHost<pixelTopology::Phase1> tracks_h(queue);
       alpaka::memcpy(queue, tracks_h.buffer(), tracks_d.buffer()); 
@@ -176,38 +187,47 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         coords.push_back(reco::zip(tracks_h.view(), idx));
       }
 
-      clue::PointsHost<1> h_points(queue, nTracks, coords, results);
-      clue::PointsDevice<1, Device> d_points(queue, nTracks);
-
-      clueVertexFinder::Producer<1, pixelTopology::Phase1> clusterer (m_dc, m_rhoc, m_dm, m_pPBin, m_wtAvg);
-      clusterer.makeClusters(h_points, d_points, queue);
+      clueVertexFinder::Producer clusterer(m_dc, m_rhoc, m_dm, m_pPBin, m_wtAvg);
+      clusterer.makeClusters(coords, results, queue);
 
       auto my_clusters = std::span<const int>{results.data(), nTracks};
       auto isSeed = std::span<const int>(results.data() + nTracks, nTracks);
-
-
-/*
-      PointsSoA<1> h_points(coords.data(), results.data(), PointInfo<1>{nTracks});
-      clue::PointsAlpaka<1, Device> d_points(queue, nTracks);
-
-      CLUEAlgoAlpaka<1> algo(m_dc, m_rhoc, m_dm, m_pPBin, queue);
         
-      const std::size_t block_size{256};
-      algo.make_clusters(h_points, d_points, FlatKernel{.5f}, queue, block_size);
+      std::vector<int> clusterCount(maxVertices); // need this to calculate averages later
+      /* ZVertexSoACollection is made of a ZVertexSoA and a ZVertexTracksSoA
+      // ZvertexSoA is made of:
+      //               SOA_COLUMN(float, zv),          // output z-posistion of found vertices
+                       SOA_COLUMN(float, wv),          // output weight (1/error^2) on the above
+                       SOA_COLUMN(float, chi2),        // vertices chi2
+                       SOA_COLUMN(float, ptv2),        // vertices pt^2
+                       SOA_COLUMN(uint16_t, sortInd),  // sorted index (by pt2)  ascending
+                       SOA_SCALAR(uint32_t, nvFinal))  // the number of vertices
+         and ZVertexTraksSoA is made of:
+         SOA_COLUMN(int16_t, idv),   // vertex index for each associated (original) track
+                                     // (-1 == not associate)
+         SOA_COLUMN(int32_t, ndof))  // vertices number of dof
+      */  
 
+      // Let's start filling out "vertices" !!
+      // To fill out columns and scalars I have to use memcopys, cause I am on the host
+      /*auto zv_hbuff = cms::alpakatools::make_host_buffer<float[]>(queue, nClusters);
+      for(int i = 0; i < nClusters; ++i) {
+        zv_hbuff[i] = coords[i];
+      }*/
 
-      AlgebraicSymMatrix33 we;
-      we(0,0) = 10000;
-      we(1,1) = 10000;
-      we(2,2) = 10000;
-*/
+      std::for_each(my_clusters.begin(), my_clusters.end(), [] (int &idx) { clusterCount[idx]++; };
+
+      for (auto i = 0u; i < nTracks; ++i) {
+        if(isSeed[i]) {
+            data[i].zv() = coords[i];
+        }
+        clusterCount[my_clusters[i]]++;
+      }
+
       event.emplace(token_RecoVertex, std::move(vertices));
 
       /* 
 
-      // Now I need to figure out how to convert the clusters into vertexes and then put them in the event
-      // Look at PixelVertexProducer.cc
-      
       auto vertexes = std::make_unique<reco::VertexCollection>();
       auto my_clusters = algo.getClusters(h_points); // returns std::map<int, std::vector<int>> vertex to track ids map
       auto seeds = h_points.isSeed(); // array of indexes of the seeds, there are my_clusters.size() seeds
@@ -254,23 +274,6 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 	  // ***
 
 	  int ndof = clusterSize - 1;
-	 
-	
-	  reco::Vertex v(reco::Vertex::Point(x, y, z), 
-	  		  error,
-			  chi2, 
-			  ndof, 
-			  clusterSize); 
-	  // Completely uncertain about what to put here, I know I need to add the whole cluster
-	  // but I don't know what kind of object v.add() wants
-	  //
-	  // it's performing an "emplace_back" on a std::vector<TrackBaseRef> object.
-	  // What is "emplace_back"?
-	  //
-	  // THIS IS FOR SURE WRONG (BUT THE INTENTION IS THERE) GOTTA FIRST FIGURE OUT HOW TO 
-	  // CONVERT PointSoA into Vertex
-	  //v.add( need to add points of cluster with seed s );
-        }
       }*/
 
       // event.put(std::move(vertexes));      
