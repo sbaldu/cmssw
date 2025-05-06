@@ -1,3 +1,4 @@
+//#pragma once
 #ifndef RecoVertex_PixleVertexFinding_plugins_alpaka_clueVertexFinder_h
 #define RecoVertex_PixleVertexFinding_plugins_alpaka_clueVertexFinder_h
 
@@ -33,7 +34,6 @@
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE {
   namespace clueVertexFinder {
-     template <int dim, typename TrackerTraits>
      class Producer {
 
      public:
@@ -50,8 +50,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
      
        ~Producer() = default;
 
-       void makeClusters (clue::PointsHost<dim>& h_points, clue::PointsDevice<dim, Device>& d_points, Queue& queue);
-
+       //void makeClusters (clue::PointsHost<1>& h_points, clue::PointsDevice<1, Device>& d_points, Queue& queue);
+       
+       // trying different approach by creating the clue::Points here
+       void makeClusters (std::vector<float>&  coords, std::vector<int>& results, Queue& queue);
      private: 
        float m_dc;
        float m_rhoc;
@@ -61,5 +63,4 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     };
   } // namespace clueVertexFinder
 } // namespace ALPAKA_ACCELERATOR_NAMESPACE
-
 #endif
