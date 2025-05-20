@@ -29,38 +29,43 @@
 #include "DataFormats/TrackSoA/interface/TracksDevice.h"
 #include "DataFormats/VertexSoA/interface/alpaka/ZVertexSoACollection.h"
 #include "DataFormats/VertexSoA/interface/ZVertexDevice.h"
+#include "DataFormats/VertexSoA/interface/ZVertexSoA.h"
 
 #include "./CLUE/include/CLUEstering/CLUEstering.hpp"
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE {
   namespace clueVertexFinder {
-     class Producer {
+    class Producer {
+    public:
+      Producer(float dc, float rhoc, float dm, int pPBin, bool wtAvg)
+          : m_dc(dc), m_rhoc(rhoc), m_dm(dm), m_pPBin(pPBin), m_wtAvg(wtAvg) {}
 
-     public:
-       Producer(float dc,
-                float rhoc,
-                float dm,
-                int pPBin,
-                bool wtAvg)
-           : m_dc(dc),
-             m_rhoc(rhoc),
-             m_dm(dm),
-             m_pPBin(pPBin),
-             m_wtAvg(wtAvg) {}
-     
-       ~Producer() = default;
+      ~Producer() = default;
 
-       //void makeClusters (clue::PointsHost<1>& h_points, clue::PointsDevice<1, Device>& d_points, Queue& queue);
-       
-       // trying different approach by creating the clue::Points here
-       void makeClusters (std::vector<float>&  coords, std::vector<int>& results, Queue& queue);
-     private: 
-       float m_dc;
-       float m_rhoc;
-       float m_dm;
-       int m_pPBin;
-       bool m_wtAvg;
+      //void makeClusters (clue::PointsHost<1>& h_points, clue::PointsDevice<1, Device>& d_points, Queue& queue);
+
+      // trying different approach by creating the clue::Points here
+      void makeClusters(std::vector<float>& coords, std::vector<int>& results, Queue& queue);
+
+    private:
+      float m_dc;
+      float m_rhoc;
+      float m_dm;
+      int m_pPBin;
+      bool m_wtAvg;
     };
-  } // namespace clueVertexFinder
-} // namespace ALPAKA_ACCELERATOR_NAMESPACE
+
+    template <typename TAcc>
+    struct ComputeParams {
+      ALPAKA_FN_ACC void operator()(TAcc const& acc,
+                                    int* myClusters,
+                                    int* isSeed,
+                                    float* coords,
+                                    reco::ZVertexSoAView vrtxdata,
+                                    reco::ZVertexTracksSoAView trkdata,
+                                    int nTracks,
+                                    int nClusters) const;
+    };
+  }  // namespace clueVertexFinder
+}  // namespace ALPAKA_ACCELERATOR_NAMESPACE
 #endif
