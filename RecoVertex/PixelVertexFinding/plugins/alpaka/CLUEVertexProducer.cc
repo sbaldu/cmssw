@@ -126,28 +126,37 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       const auto maxTracks = tracks_d_view.metadata().size();
       const uint32_t nTracks = tracks_d_view.nTracks();
 
+      std::cout << __LINE__ << std::endl;
+
       ZVertexSoACollection vertices({{maxVertices, maxTracks}}, queue);
+      std::cout << __LINE__ << std::endl;
       auto data = vertices.view();
       auto trkdata = vertices.view<reco::ZVertexTracksSoA>();  // access the data in the ZVertexTracksSoA Layout
       auto vrtxdata = vertices.view<reco::ZVertexSoA>();       // access the data in the ZVertexSoA Layout
+      std::cout << __LINE__ << std::endl;
       // Copying from device to host
       TracksHost<pixelTopology::Phase1> tracks_h(queue);
       alpaka::memcpy(queue, tracks_h.buffer(), tracks_d.buffer());
 
+      std::cout << __LINE__ << std::endl;
       std::vector<float> coords;
       std::vector<int> results(nTracks);
       for (auto idx = 0u; idx < nTracks; ++idx) {
         coords.push_back(reco::zip(tracks_h.view(), idx));
       }
 
+      std::cout << __LINE__ << std::endl;
       clueVertexFinder::Producer clusterer(m_dc, m_rhoc, m_dm, m_pPBin, m_wtAvg);
       clusterer.makeClusters(coords, results, queue);
 
-      auto my_clusters = std::span<const int>{results.data(), nTracks};
+      std::cout << __LINE__ << std::endl;
+      auto myClusters = std::span<const int>{results.data(), nTracks};
       auto isSeed = std::span<const int>(results.data() + nTracks, nTracks);
 
-      int nClusters = *(std::max_element(my_clusters.begin(), my_clusters.end())) + 1;
+      std::cout << __LINE__ << std::endl;
+      int nClusters = *(std::max_element(myClusters.begin(), myClusters.end())) + 1;
       std::vector<int> clusterCount(nClusters);  // need this to calculate averages later
+      std::cout << __LINE__ << std::endl;
       /* ZVertexSoACollection is made of a ZVertexSoA and a ZVertexTracksSoA
       // ZvertexSoA is made of:
       //               SOA_COLUMN(float, zv),          // output z-posistion of found vertices
@@ -170,28 +179,30 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       }*/
 
       // I will need this to compute chi2 of each vertex
-      std::for_each(my_clusters.begin(), my_clusters.end(), [&clusterCount](int idx) { clusterCount[idx]++; });
+      std::for_each(myClusters.begin(), myClusters.end(), [&clusterCount](int idx) { clusterCount[idx]++; });
       vrtxdata.nvFinal() = nClusters;
-      float chi2 = 0;
 
-      std::vector<float> zAcc(nClusters);
+      std::cout << __LINE__ << std::endl;
+      // Preparing to launch kernels
 
+      /*
       for (auto i = 0u; i < nTracks; ++i) {
         if (isSeed[i]) {
-          vrtxdata[my_clusters[i]].zv() = coords[i];
-          trkdata[i].ndof() = clusterCount[my_clusters[i]] - 1;
+          vrtxdata[myClusters[i]].zv() = coords[i];
+          trkdata[i].ndof() = clusterCount[myClusters[i]] - 1;
         }
-        trkdata[i].idv() = my_clusters[i];
-        zAcc[my_clusters[i]] += coords[i];
+        trkdata[i].idv() = myClusters[i];
+        zAcc[myClusters[i]] += coords[i];
       }
 
       event.emplace(token_RecoVertex, std::move(vertices));
+      */
 
       /* 
 
       auto vertexes = std::make_unique<reco::VertexCollection>();
-      auto my_clusters = algo.getClusters(h_points); // returns std::map<int, std::vector<int>> vertex to track ids map
-      auto seeds = h_points.isSeed(); // array of indexes of the seeds, there are my_clusters.size() seeds
+      auto myClusters = algo.getClusters(h_points); // returns std::map<int, std::vector<int>> vertex to track ids map
+      auto seeds = h_points.isSeed(); // array of indexes of the seeds, there are myClusters.size() seeds
 	*/
       // Need to put the clusters into "vertexes", use the seed of each cluster as the point, and then put the points of the
       // cluster in the track of each Vector
@@ -209,16 +220,16 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 	  double y = bs.y0() + bs.dydz() * (z - bs.zo());
 
 	  int clusterIdx = h_points.clusterIndexes()[s];
-	  int clusterSize = my_clusters[clusterIdx].size();
+	  int clusterSize = myClusters[clusterIdx].size();
 
 	  // Hard coding error, chi2 and ndof
 	
-	  double avgPos = std::accumulate(my_clusters[clusterIdx].brgin(), my_clusters[clusterIdx].end(), 0.0,
+	  double avgPos = std::accumulate(myClusters[clusterIdx].brgin(), myClusters[clusterIdx].end(), 0.0,
 			  [&h_points.coords()](double acc, size_t i) { return acc + h_points.coords()[i + n_points * 2]; } );
 	  avgPos /= clusterSize;
 
 	  // Computing error in 1D(z): Semidispersione massima / sqrt(num of points in cluster)
-	  auto minmax = std::minmax_element(my_clusters[clusterIdx].begin(), my_clusters[clusterIdx].end(),
+	  auto minmax = std::minmax_element(myClusters[clusterIdx].begin(), myClusters[clusterIdx].end(),
 			  [&h_points.coords()](size_t i, size_t j) { 
 			    return h_points.coords()[i + n_points * 2] < h_points.coords()[j + n_points * 2]; });
 	  double min = h_points.coords()[*minmax.first];
@@ -229,7 +240,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
  	  // Computing chi2 of z coordinate	
 	  
 
-	  double chi2 = std::accumulate(my_clusters[clusterIdx].brgin(), my_clusters[clusterIdx].end(), 0.0,
+	  double chi2 = std::accumulate(myClusters[clusterIdx].brgin(), myClusters[clusterIdx].end(), 0.0,
 		  	  [&h_points.coords()](double acc, size_t i) { 
 		    	    return acc + (h_points.coords()[i + n_points * 2] - avgPos)*(h_points.coords()[i + n_points * 2] - avgPos)/avgPos; } );
 	  // ***

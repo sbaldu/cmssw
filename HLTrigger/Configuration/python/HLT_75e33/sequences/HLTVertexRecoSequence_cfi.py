@@ -5,5 +5,6 @@ from ..modules.hltTrackRefsForJetsBeforeSorting_cfi import *
 from ..modules.hltTrackWithVertexRefSelectorBeforeSorting_cfi import *
 from ..modules.hltUnsortedOfflinePrimaryVertices_cfi import *
 from ..sequences.HLTInitialStepPVSequence_cfi import *
+from ..modules.clueVertexProducer_cfi import *
 
-HLTVertexRecoSequence = cms.Sequence(HLTInitialStepPVSequence+hltUnsortedOfflinePrimaryVertices+hltTrackWithVertexRefSelectorBeforeSorting+hltTrackRefsForJetsBeforeSorting+hltOfflinePrimaryVertices)
+HLTVertexRecoSequence = cms.Sequence(HLTInitialStepPVSequence+hltUnsortedOfflinePrimaryVertices+hltTrackWithVertexRefSelectorBeforeSorting+hltTrackRefsForJetsBeforeSorting+hltOfflinePrimaryVertices+clueVertexProducer)
