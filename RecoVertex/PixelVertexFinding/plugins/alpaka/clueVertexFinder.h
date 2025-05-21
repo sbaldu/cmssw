@@ -61,6 +61,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                                     int* myClusters,
                                     int* isSeed,
                                     float* coords,
+                                    int* clusterCounter,
                                     reco::ZVertexSoAView vrtxdata,
                                     reco::ZVertexTracksSoAView trkdata,
                                     int nTracks,

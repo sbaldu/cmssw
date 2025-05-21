@@ -19,3 +19,6 @@ from Configuration.ProcessModifiers.mtd_at_hlt_cff import mtd_at_hlt
 mtd_at_hlt.toReplaceWith(HLTVertexRecoSequence,
                          cms.Sequence(_HLTVertexRecoSequence+
                                       HLTVertex4DRecoSequence))
+# from ..modules.clueVertexProducer_cfi import *
+
+# HLTVertexRecoSequence = cms.Sequence(HLTInitialStepPVSequence+hltUnsortedOfflinePrimaryVertices+hltTrackWithVertexRefSelectorBeforeSorting+hltTrackRefsForJetsBeforeSorting+hltOfflinePrimaryVertices+clueVertexProducer)
