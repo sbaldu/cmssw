@@ -5,13 +5,25 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
     //
     void Producer::makeClusters(std::vector<float>& coords, std::vector<int>& results, Queue& queue) {
+      std::cout << "clueVertexFinder line: " << __LINE__ << std::endl;
       int nTracks = results.size();
-      clue::PointsHost<1> h_points(queue, nTracks, coords, results);
+      std::cout << "clueVertexFinder line: " << __LINE__ << std::endl;
+      clue::PointsHost<1> h_points(queue, nTracks, coords, results); // zv pt clidx isSeed, need to use another overload, not the one
+                                                                     // I used here:
+                                                                     // I need to use the one that takes:
+                                                                     // pointer to z coords (input)
+                                                                     // pointer to pt (weight) (input)
+                                                                     // pointer to cluster indexes (output)  dv of the layout
+                                                                     // pointer to isSeed (output)
+      std::cout << "clueVertexFinder line: " << __LINE__ << std::endl;
       clue::PointsDevice<1, Device> d_points(queue, nTracks);
+      std::cout << "clueVertexFinder line: " << __LINE__ << std::endl;
 
       clue::Clusterer<1> algo(queue, m_dc, m_rhoc, m_dm);
+      std::cout << "clueVertexFinder line: " << __LINE__ << std::endl;
       const std::size_t block_size{256};
       algo.make_clusters(h_points, d_points, FlatKernel{.5f}, queue, block_size);
+      std::cout << "clueVertexFinder line: " << __LINE__ << std::endl;
     }
 
     // Kernel to compute parameters of the verteces and the tracks
