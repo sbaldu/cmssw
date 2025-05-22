@@ -1,4 +1,6 @@
 import FWCore.ParameterSet.Config as cms
+from Configuration.ProcessModifiers.alpaka_cff import alpaka
+
 
 from ..modules.hltOfflinePrimaryVertices_cfi import *
 from ..modules.hltTrackRefsForJetsBeforeSorting_cfi import *
