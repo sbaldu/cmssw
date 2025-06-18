@@ -42,10 +42,12 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
       ~Producer() = default;
 
-      //void makeClusters (clue::PointsHost<1>& h_points, clue::PointsDevice<1, Device>& d_points, Queue& queue);
+      void makeClusters(std::vector<float>& coords, std::vector<int>& results, Queue& queue, size_t& nTracks);
 
-      // trying different approach by creating the clue::Points here
-      void makeClusters(std::vector<float>& coords, std::vector<int>& results, Queue& queue);
+      /*ZVertexSoACollection*/ void makeAsync(Queue& queue,
+                                              TracksSoACollection<pixelTopology::Phase2>::ConstView const& tracks_view,
+                                              int maxVertices,
+                                              float ptMin) const;
 
     private:
       float m_dc;
@@ -54,7 +56,6 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       int m_pPBin;
       bool m_wtAvg;
     };
-
     template <typename TAcc>
     struct ComputeParams {
       ALPAKA_FN_ACC void operator()(TAcc const& acc,
