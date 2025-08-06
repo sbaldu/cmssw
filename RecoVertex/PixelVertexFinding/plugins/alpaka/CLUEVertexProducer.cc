@@ -182,7 +182,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         clusterer.makeAsync(queue, tracks_d_view, maxVertices, ptMin_);
         std::cout << "After calling makeAsync\n";
         // THIS PART WORKS
-        /*clusterer.makeClusters(coords, results, queue, trueTracks);
+        /*clusterer.makeClusters(queue, coords, results, trueTracks);
 
         std::cout << __LINE__ << std::endl;
         auto myClusters = std::span<const int>{results.data(), trueTracks};
