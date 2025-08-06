@@ -31,7 +31,15 @@
 #include "DataFormats/VertexSoA/interface/ZVertexDevice.h"
 #include "DataFormats/VertexSoA/interface/ZVertexSoA.h"
 
+#include "DataFormats/TrackSoA/interface/alpaka/TrackUtilities.h"
+#include "HeterogeneousCore/AlpakaInterface/interface/config.h"
+#include "HeterogeneousCore/AlpakaInterface/interface/workdivision.h"
+#include "RecoVertex/PixelVertexFinding/interface/PixelVertexWorkSpaceLayout.h"
+#include "RecoVertex/PixelVertexFinding/plugins/alpaka/PixelVertexWorkSpaceSoADeviceAlpaka.h"
+
 #include "./CLUE/include/CLUEstering/CLUEstering.hpp"
+
+/*test*/
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE {
   namespace clueVertexFinder {
@@ -42,12 +50,12 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
       ~Producer() = default;
 
-      void makeClusters(std::vector<float>& coords, std::vector<int>& results, Queue& queue, size_t& nTracks);
-
+      void makeClusters(Queue& queue, std::vector<float>& coords, std::vector<int>& results, size_t& nTracks);
+      void makeClusters(Queue& queue, ::vertexFinder::PixelVertexWorkSpaceSoAView ws);
       /*ZVertexSoACollection*/ void makeAsync(Queue& queue,
                                               TracksSoACollection<pixelTopology::Phase2>::ConstView const& tracks_view,
                                               int maxVertices,
-                                              float ptMin) const;
+                                              float ptMin);
 
     private:
       float m_dc;
@@ -69,5 +77,5 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                                     int nClusters) const;
     };
   }  // namespace clueVertexFinder
-}  // namespace ALPAKA_ACCELERATOR_NAMESPACE
+}  // namespace ALPAKA_ACCELERATOR_NAMESPACe
 #endif

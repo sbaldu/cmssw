@@ -33,11 +33,9 @@
   <use name="HeterogeneousCore/AlpakaInterface"/>
   <!-- work around for cms-sw/cmssw#45179 -->
   <use name="no-array-bounds-flag" for="alpaka/serial"/>
-  <flags ALPAKA_BACKENDS="1"/>
+  <flags ALPAKA_BACKENDS="serial cuda"/>
   <flags EDM_PLUGIN="1"/>
   <flags CXXFLAGS="-I${CMSSW_BASE}/src/RecoVertex/PixelVertexFinding/plugins/alpaka/CLUE/include"/>
   <flags ADDINCLUDE="-I${CMSSW_BASE}/src/RecoVertex/PixelVertexFinding/plugins/alpaka/CLUE/include"/>
-  <flags CXXFLAGS="-I${CMSSW_BASE}/src/RecoVertex/PixelVertexFinding/plugins/alpaka/CLUE/extern/xtd/include"/>
-  <flags ADDINCLUDE="-I${CMSSW_BASE}/src/RecoVertex/PixelVertexFinding/plugins/alpaka/CLUE/extern/xtd/include"/>
 </library>
 
