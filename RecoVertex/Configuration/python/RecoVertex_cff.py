@@ -7,7 +7,7 @@ from RecoVertex.PrimaryVertexProducer.OfflinePrimaryVertices_cfi import *
 from RecoVertex.PrimaryVertexProducer.OfflinePrimaryVerticesWithBS_cfi import *
 from RecoVertex.V0Producer.generalV0Candidates_cff import *
 from RecoVertex.AdaptiveVertexFinder.inclusiveVertexing_cff import *
-from RecoVertex.PixelVertexFinding.clueVertexProducer_cfi import *
+from RecoVertex.PixelVertexFinding.alpaka_cuda_asyncCLUEVertexProducer_cfi import alpaka_cuda_asyncCLUEVertexProducer as clueVertexProducer
 
 from CommonTools.RecoAlgos.TrackWithVertexRefSelector_cfi import *
 from RecoJets.JetProducers.TracksForJets_cff import *
