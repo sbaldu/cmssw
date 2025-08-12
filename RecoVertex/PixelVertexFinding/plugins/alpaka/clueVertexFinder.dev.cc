@@ -8,7 +8,6 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
     //
     void Producer::makeClusters(Queue& queue, std::vector<float>& coords, std::vector<int>& results, size_t& nTracks) {
-      std::cout << "clueVertexFinder line: " << __LINE__ << std::endl;
       clue::PointsHost<1> h_points(
           queue, nTracks, coords, results);  // zv pt clidx isSeed, need to use another overload, not the one
                                              // I used here:
@@ -17,18 +16,13 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                                              // pointer to pt (weight) (input)
                                              // pointer to cluster indexes (output)  dv of the layout
                                              // pointer to isSeed (output)
-      std::cout << "clueVertexFinder line: " << __LINE__ << std::endl;
-      clue::PointsDevice<1, Device> d_points(queue, nTracks);
-      std::cout << "clueVertexFinder line: " << __LINE__ << std::endl;
+      // clue::PointsDevice<1, Device> d_points(queue, nTracks);
 
-      clue::Clusterer<1> algo(queue, m_dc, m_rhoc, m_dm);
-      std::cout << "clueVertexFinder line: " << __LINE__ << std::endl;
-      const std::size_t block_size{256};
-      algo.make_clusters(h_points, d_points, FlatKernel{.5f}, queue, block_size);
-      std::cout << "clueVertexFinder line: " << __LINE__ << std::endl;
+      //clue::Clusterer<1> algo(queue, m_dc, m_rhoc, m_dm);
+      //const std::size_t block_size{256};
+      //algo.make_clusters(h_points, d_points, clue::FlatKernel{.5f}, queue, block_size);
     }
     void Producer::makeClusters(Queue& queue, ::vertexFinder::PixelVertexWorkSpaceSoAView ws) {
-      std::cout << "clueVertexFinder line: " << __LINE__ << std::endl;
       int nTracks = ws.ntrks();
       clue::PointsHost<1> h_points(queue,
                                    nTracks,
@@ -42,20 +36,16 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                                                // pointer to pt (weight) (input)
                                                // pointer to cluster indexes (output)  dv of the layout
                                                // pointer to isSeed (output)
-      std::cout << "clueVertexFinder line: " << __LINE__ << std::endl;
       clue::PointsDevice<1, Device> d_points(queue, nTracks);
-      std::cout << "clueVertexFinder line: " << __LINE__ << std::endl;
 
       clue::Clusterer<1> algo(queue, m_dc, m_rhoc, m_dm);
-      std::cout << "clueVertexFinder line: " << __LINE__ << std::endl;
       const std::size_t block_size{256};
-      algo.make_clusters(h_points, d_points, FlatKernel{.5f}, queue, block_size);
-      std::cout << "clueVertexFinder line: " << __LINE__ << std::endl;
+      algo.make_clusters(h_points, d_points, clue::FlatKernel{.5f}, queue, block_size);
     }
     class LoadTracks {
     public:
       ALPAKA_FN_ACC void operator()(Acc1D const& acc,
-                                    TracksSoACollection<pixelTopology::Phase2>::ConstView tracks_view,
+                                    ::reco::TrackSoAConstView tracks_view,
                                     ::vertexFinder::PixelVertexWorkSpaceSoAView ws,
                                     float ptMin) const {
         //printf("clueVertexFinder.dev.cc: Before the for loop in the LoadTracks kernel \n");
@@ -66,7 +56,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
             continue;
           auto it = alpaka::atomicAdd(acc, &ws.ntrks(), 1u, alpaka::hierarchy::Blocks{});
           ws[it].itrk() = idx;
-          ws[it].zt() = reco::zip(tracks_view, idx);
+          ws[it].zt() = ::reco::zip(tracks_view, idx);
           ws[it].ptt2() = pt;  // loading pt instead of pt * pt bacause I don't need the square for the clustering
         }
         //printf("clueVertexFinder.dev.cc: After the for loop in the LoadTracks kernel \n");
@@ -76,7 +66,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     // void for now, since I'm not returning anything yet
     /*ZVertexSoACollection*/ void Producer::makeAsync(
         Queue& queue,
-        TracksSoACollection<pixelTopology::Phase2>::ConstView const& tracks_view,
+        ::reco::TrackSoAConstView const& tracks_view,
         int maxVertices,
         float ptMin) {
       const auto maxTracks = tracks_view.metadata().size();
@@ -95,7 +85,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
       // calling makeClusters
       this->makeClusters(queue,
-                   ws);  // using izt as the isSeed output of the clustering algorithm
+                         ws);  // using izt as the isSeed output of the clustering algorithm
     }
 
     // Kernel to compute parameters of the verteces and the tracks

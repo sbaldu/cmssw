@@ -53,7 +53,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       void makeClusters(Queue& queue, std::vector<float>& coords, std::vector<int>& results, size_t& nTracks);
       void makeClusters(Queue& queue, ::vertexFinder::PixelVertexWorkSpaceSoAView ws);
       /*ZVertexSoACollection*/ void makeAsync(Queue& queue,
-                                              TracksSoACollection<pixelTopology::Phase2>::ConstView const& tracks_view,
+                                              ::reco::TrackSoAConstView const& tracks_view,
                                               int maxVertices,
                                               float ptMin);
 
@@ -71,11 +71,11 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                                     int* isSeed,
                                     float* coords,
                                     int* clusterCounter,
-                                    reco::ZVertexSoAView vrtxdata,
-                                    reco::ZVertexTracksSoAView trkdata,
+                                    ::reco::ZVertexSoAView vrtxdata,
+                                    ::reco::ZVertexTracksSoAView trkdata,
                                     int nTracks,
                                     int nClusters) const;
     };
   }  // namespace clueVertexFinder
-}  // namespace ALPAKA_ACCELERATOR_NAMESPACe
+}  // namespace ALPAKA_ACCELERATOR_NAMESPACE
 #endif
