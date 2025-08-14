@@ -1,117 +1,130 @@
 #include <alpaka/alpaka.hpp>
 #include <cstdio>
 
-#include "./clueVertexFinder.h"
+#include "RecoVertex/PixelVertexFinding/plugins/alpaka/vertexFinder.h"
+#include "RecoVertex/PixelVertexFinding/plugins/alpaka/clueVertexFinder.h"
+#include "RecoVertex/PixelVertexFinding/plugins/alpaka/fitVertices.h"
+#include "RecoVertex/PixelVertexFinding/plugins/alpaka/sortByPt2.h"
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE {
   namespace clueVertexFinder {
+    constexpr float maxChi2ForFirstFit = 50.f;
 
-    //
-    void Producer::makeClusters(Queue& queue, std::vector<float>& coords, std::vector<int>& results, size_t& nTracks) {
-      clue::PointsHost<1> h_points(
-          queue, nTracks, coords, results);  // zv pt clidx isSeed, need to use another overload, not the one
-                                             // I used here:
-                                             // I need to use the one that takes:
-                                             // pointer to z coords (input)
-                                             // pointer to pt (weight) (input)
-                                             // pointer to cluster indexes (output)  dv of the layout
-                                             // pointer to isSeed (output)
-      // clue::PointsDevice<1, Device> d_points(queue, nTracks);
-
-      //clue::Clusterer<1> algo(queue, m_dc, m_rhoc, m_dm);
-      //const std::size_t block_size{256};
-      //algo.make_clusters(h_points, d_points, clue::FlatKernel{.5f}, queue, block_size);
-    }
-    void Producer::makeClusters(Queue& queue, ::vertexFinder::PixelVertexWorkSpaceSoAView ws) {
-      int nTracks = ws.ntrks();
-      clue::PointsHost<1> h_points(queue,
-                                   nTracks,
-                                   ws.zt(),
-                                   ws.ptt2(),
-                                   ws.iv(),
-                                   ws.izt());  // zv pt clidx isSeed, need to use another overload, not the one
-                                               // I used here:
-                                               // I need to use the one that takes:
-                                               // pointer to z coords (input)
-                                               // pointer to pt (weight) (input)
-                                               // pointer to cluster indexes (output)  dv of the layout
-                                               // pointer to isSeed (output)
-      clue::PointsDevice<1, Device> d_points(queue, nTracks);
-
-      clue::Clusterer<1> algo(queue, m_dc, m_rhoc, m_dm);
-      const std::size_t block_size{256};
-      algo.make_clusters(h_points, d_points, clue::FlatKernel{.5f}, queue, block_size);
-    }
     class LoadTracks {
     public:
       ALPAKA_FN_ACC void operator()(Acc1D const& acc,
                                     ::reco::TrackSoAConstView tracks_view,
+                                    ::reco::ZVertexSoAView data,
+                                    ::reco::ZVertexTracksSoAView trkdata,
                                     ::vertexFinder::PixelVertexWorkSpaceSoAView ws,
-                                    float ptMin) const {
-        //printf("clueVertexFinder.dev.cc: Before the for loop in the LoadTracks kernel \n");
+                                    float ptMin,
+                                    float ptMax) const {
+        auto const* quality = tracks_view.quality();
+
         for (auto idx : cms::alpakatools::uniform_elements(acc, tracks_view.nTracks())) {
+          [[maybe_unused]] auto nHits = ::reco::nHits(tracks_view, idx);
+          ALPAKA_ASSERT_ACC(nHits >= 3);
+
+          // initialize the track data
+          trkdata[idx].idv() = -1;
+
+          // do not use triplets
+          if (::reco::isTriplet(tracks_view, idx))
+            continue;
+
+          // use only "high purity" track
+          if (quality[idx] < ::pixelTrack::Quality::highPurity)
+            continue;
+
           auto pt = tracks_view[idx].pt();
-          ws.ntrks() = 0;
+          // pT min cut
           if (pt < ptMin)
             continue;
+
+          // clamp pT to the pTmax
+          pt = std::min<float>(pt, ptMax);
+
+          // load the track data into the workspace
           auto it = alpaka::atomicAdd(acc, &ws.ntrks(), 1u, alpaka::hierarchy::Blocks{});
           ws[it].itrk() = idx;
           ws[it].zt() = ::reco::zip(tracks_view, idx);
-          ws[it].ptt2() = pt;  // loading pt instead of pt * pt bacause I don't need the square for the clustering
+          ws[it].ezt2() = tracks_view[idx].covariance()(14);
+          ws[it].ptt2() = pt * pt;
         }
-        //printf("clueVertexFinder.dev.cc: After the for loop in the LoadTracks kernel \n");
       }
-    };  // LoadTracks
+    };
 
-    // void for now, since I'm not returning anything yet
-    /*ZVertexSoACollection*/ void Producer::makeAsync(
-        Queue& queue,
-        ::reco::TrackSoAConstView const& tracks_view,
-        int maxVertices,
-        float ptMin) {
+    ZVertexSoACollection Producer::makeAsync(
+        Queue& queue, ::reco::TrackSoAConstView const& tracks_view, int maxVertices, float ptMin, float ptMax) {
       const auto maxTracks = tracks_view.metadata().size();
-      vertexFinder::PixelVertexWorkSpaceSoADevice workspace(maxTracks, queue);
-      std::cout << "clueVertexFinder.dev.cc: Created Workspace \n";
-      auto ws = workspace.view();
+      std::cout << "max tracks = " << maxTracks << std::endl;
+      ZVertexSoACollection vertices({{maxVertices, maxTracks}}, queue);
+      auto verticesView = vertices.view();
+      auto vertexTrackDataView = vertices.view<::reco::ZVertexTracksSoA>();
 
-      //TO DO: Initialize?
+      // Initialize the workspace
+      vertexFinder::PixelVertexWorkSpaceSoADevice workspace(maxTracks, queue);
+      auto workspaceView = workspace.view();
+      const auto initWorkDiv = cms::alpakatools::make_workdiv<Acc1D>(1, 1);
+      alpaka::exec<Acc1D>(
+          queue, initWorkDiv, ALPAKA_ACCELERATOR_NAMESPACE::vertexFinder::Init{}, verticesView, workspaceView);
 
       //Load Tracks
       const uint32_t blockSize = 128;
       const uint32_t numberOfBlocks = cms::alpakatools::divide_up_by(maxTracks + blockSize - 1, blockSize);
       const auto loadTracksWorkDiv = cms::alpakatools::make_workdiv<Acc1D>(numberOfBlocks, blockSize);
-      alpaka::exec<Acc1D>(queue, loadTracksWorkDiv, LoadTracks{}, tracks_view, ws, ptMin);
-      std::cout << "clueVertexFinder.dev.cc: Loaded the tracks into the workspace \n";
+      alpaka::exec<Acc1D>(queue,
+                          loadTracksWorkDiv,
+                          LoadTracks{},
+                          tracks_view,
+                          verticesView,
+                          vertexTrackDataView,
+                          workspaceView,
+                          ptMin,
+                          ptMax);
 
-      // calling makeClusters
-      this->makeClusters(queue,
-                         ws);  // using izt as the isSeed output of the clustering algorithm
+      // Copy number of tracks to host
+      auto nTracksBuf = cms::alpakatools::make_host_buffer<uint32_t>(queue);
+      alpaka::memcpy(queue, nTracksBuf, cms::alpakatools::make_device_view<uint32_t>(queue, workspaceView.ntrks()));
+      alpaka::wait(queue);
+      const auto nTracks = *nTracksBuf;
+
+      // Run CLUEstering
+      if (nTracks > 0) {
+        auto isSeed =
+            cms::alpakatools::make_device_buffer<int[]>(queue, nTracks);  // temporary buffer needed by CLUEstering
+        clue::Clusterer<1> clusterer(queue, dc_, rhoc_, dm_, pPBin_);
+        clue::PointsDevice<1, Device> d_points(
+            queue, nTracks, workspaceView.zt(), workspaceView.ptt2(), workspaceView.iv(), isSeed.data());
+        clusterer.make_clusters(d_points, clue::FlatKernel{.5}, queue, 256);
+        clue::PointsHost<1> h_points(queue, nTracks);
+        clue::copyToHost(queue, h_points, d_points);
+        alpaka::wait(queue);
+        uint32_t nVertices = std::accumulate(h_points.isSeed().data(), h_points.isSeed().data() + h_points.size(), 0u);
+        alpaka::memcpy(queue,
+                       cms::alpakatools::make_device_view<uint32_t>(queue, verticesView.nvFinal()),
+                       cms::alpakatools::make_host_view<uint32_t>(nVertices));
+        alpaka::memcpy(queue,
+                       cms::alpakatools::make_device_view<uint32_t>(queue, workspaceView.nvIntermediate()),
+                       cms::alpakatools::make_host_view<uint32_t>(nVertices));
+      }
+      const auto finderSorterWorkDiv = cms::alpakatools::make_workdiv<Acc1D>(1, 1024 - 128);
+      alpaka::exec<Acc1D>(queue,
+                          finderSorterWorkDiv,
+                          ALPAKA_ACCELERATOR_NAMESPACE::vertexFinder::FitVerticesKernel{},
+                          verticesView,
+                          vertexTrackDataView,
+                          workspaceView,
+                          maxChi2ForFirstFit);
+      alpaka::exec<Acc1D>(queue,
+                          finderSorterWorkDiv,
+                          ALPAKA_ACCELERATOR_NAMESPACE::vertexFinder::SortByPt2Kernel{},
+                          verticesView,
+                          vertexTrackDataView,
+                          workspaceView);
+
+      return vertices;
     }
 
-    // Kernel to compute parameters of the verteces and the tracks
-    /*template <typename TAcc>
-    ALPAKA_FN_ACC void ComputeParams<TAcc>::operator()(TAcc const& acc,
-                                                       int* myClusters,
-                                                       int* isSeed,
-                                                       float* coords,
-                                                       int* clusterCounter,
-                                                       reco::ZVertexSoAView vrtxdata,
-                                                       reco::ZVertexTracksSoAView trkdata,
-                                                       int nTracks,
-                                                       int nClusters) const {
-      int gridThreadIdx = alpaka::getIdx<alpaka::Grid, alpaka::Threads>(acc)[0];
-      int dimThread = alpaka::getWorkDiv<alpaka::Thread, alpaka::Elems>(acc)[0];
-      int firstElemIdx = gridThreadIdx * dimThread;
-      if (firstElemIdx < nTracks) {
-        int lastElemIdx = (nTracks > firstElemIdx + dimThread ? firstElemIdx + dimThread : nTracks);
-        for (int idx = firstElemIdx; idx < lastElemIdx; ++idx) {
-          if (isSeed[idx]) {
-            vrtxdata[myClusters[idx]].zv() = coords[idx];
-          }
-          clusterCounter[myClusters[idx]]++;
-          trkdata[idx].idv() = myClusters[idx];
-        }
-      }
-    }*/
   }  // namespace clueVertexFinder
 }  //namespace ALPAKA_ACCELERATOR_NAMESPACE
