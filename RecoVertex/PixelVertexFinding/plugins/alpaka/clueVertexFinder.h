@@ -43,39 +43,25 @@
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE {
   namespace clueVertexFinder {
+
     class Producer {
     public:
       Producer(float dc, float rhoc, float dm, int pPBin, bool wtAvg)
-          : m_dc(dc), m_rhoc(rhoc), m_dm(dm), m_pPBin(pPBin), m_wtAvg(wtAvg) {}
+          : dc_(dc), rhoc_(rhoc), dm_(dm), pPBin_(pPBin), wtAvg_(wtAvg) {}
 
       ~Producer() = default;
 
-      void makeClusters(Queue& queue, std::vector<float>& coords, std::vector<int>& results, size_t& nTracks);
-      void makeClusters(Queue& queue, ::vertexFinder::PixelVertexWorkSpaceSoAView ws);
-      /*ZVertexSoACollection*/ void makeAsync(Queue& queue,
-                                              ::reco::TrackSoAConstView const& tracks_view,
-                                              int maxVertices,
-                                              float ptMin);
+      ZVertexSoACollection makeAsync(
+          Queue& queue, ::reco::TrackSoAConstView const& tracks_view, int maxVertices, float ptMin, float ptMax);
 
     private:
-      float m_dc;
-      float m_rhoc;
-      float m_dm;
-      int m_pPBin;
-      bool m_wtAvg;
+      float dc_;
+      float rhoc_;
+      float dm_;
+      int pPBin_;
+      bool wtAvg_;
     };
-    template <typename TAcc>
-    struct ComputeParams {
-      ALPAKA_FN_ACC void operator()(TAcc const& acc,
-                                    int* myClusters,
-                                    int* isSeed,
-                                    float* coords,
-                                    int* clusterCounter,
-                                    ::reco::ZVertexSoAView vrtxdata,
-                                    ::reco::ZVertexTracksSoAView trkdata,
-                                    int nTracks,
-                                    int nClusters) const;
-    };
+
   }  // namespace clueVertexFinder
 }  // namespace ALPAKA_ACCELERATOR_NAMESPACE
 #endif
