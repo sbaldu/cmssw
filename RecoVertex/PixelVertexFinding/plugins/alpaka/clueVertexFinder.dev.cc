@@ -4,11 +4,14 @@
 #include "RecoVertex/PixelVertexFinding/plugins/alpaka/vertexFinder.h"
 #include "RecoVertex/PixelVertexFinding/plugins/alpaka/clueVertexFinder.h"
 #include "RecoVertex/PixelVertexFinding/plugins/alpaka/fitVertices.h"
+#include "RecoVertex/PixelVertexFinding/plugins/alpaka/splitVertices.h"
 #include "RecoVertex/PixelVertexFinding/plugins/alpaka/sortByPt2.h"
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE {
   namespace clueVertexFinder {
     constexpr float maxChi2ForFirstFit = 50.f;
+    constexpr float maxChi2ForFinalFit = 5000.f;
+    constexpr float maxChi2ForSplit = 9.f;
 
     class LoadTracks {
     public:
@@ -96,7 +99,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         clue::Clusterer<1> clusterer(queue, dc_, rhoc_, dm_, pPBin_);
         clue::PointsDevice<1, Device> d_points(
             queue, nTracks, workspaceView.zt(), workspaceView.ptt2(), workspaceView.iv(), isSeed.data());
-        clusterer.make_clusters(d_points, clue::FlatKernel{.5}, queue, 256);
+        clusterer.make_clusters(d_points, clue::FlatKernel{.5f}, queue, 256);
         clue::PointsHost<1> h_points(queue, nTracks);
         clue::copyToHost(queue, h_points, d_points);
         alpaka::wait(queue);
@@ -116,6 +119,21 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                           vertexTrackDataView,
                           workspaceView,
                           maxChi2ForFirstFit);
+      const auto splitterFitterWorkDiv = cms::alpakatools::make_workdiv<Acc1D>(1024, 128);
+      alpaka::exec<Acc1D>(queue,
+                          splitterFitterWorkDiv,
+                          ALPAKA_ACCELERATOR_NAMESPACE::vertexFinder::SplitVerticesKernel{},
+                          verticesView,
+                          vertexTrackDataView,
+                          workspaceView,
+                          maxChi2ForSplit);
+      alpaka::exec<Acc1D>(queue,
+                          finderSorterWorkDiv,
+                          ALPAKA_ACCELERATOR_NAMESPACE::vertexFinder::FitVerticesKernel{},
+                          verticesView,
+                          vertexTrackDataView,
+                          workspaceView,
+                          maxChi2ForFinalFit);
       alpaka::exec<Acc1D>(queue,
                           finderSorterWorkDiv,
                           ALPAKA_ACCELERATOR_NAMESPACE::vertexFinder::SortByPt2Kernel{},
