@@ -45,30 +45,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
           trackCollName(conf.getParameter<edm::InputTag>("TrackCollection")),
           token_Tracks(consumes(trackCollName)),
           //token_BeamSpot(consumes(conf.getParameter<edm::InputTag>("beamSpot"))),
-          token_RecoVertex(produces()) {
-      // Register my product
-
-      // Setup shop
-      // std::string finder = conf.getParameter<std::string>("Finder");  // DivisiveVertexFinder
-      bool useError = conf.getParameter<bool>("UseError");            // true
-      bool wtAverage = conf.getParameter<bool>("WtAverage");          // true
-      double zOffset = conf.getParameter<double>("ZOffset");          // 5.0 sigma
-      double zSeparation = conf.getParameter<double>("ZSeparation");  // 0.05 cm
-      int ntrkMin = conf.getParameter<int>("NTrkMin");                // 3
-      // Tracking requirements before sending a track to be considered for vtx
-
-      double track_pt_min = ptMin_;
-      double track_pt_max = 10.;
-      double track_chi2_max = 9999999.;
-      double track_prob_min = -1.;
-      if (conf.exists("PVcomparer")) {
-        edm::ParameterSet PVcomparerPSet = conf.getParameter<edm::ParameterSet>("PVcomparer");
-        track_pt_min = PVcomparerPSet.getParameter<double>("track_pt_min");
-        track_pt_max = PVcomparerPSet.getParameter<double>("track_pt_max");
-        track_chi2_max = PVcomparerPSet.getParameter<double>("track_chi2_max");
-        track_prob_min = PVcomparerPSet.getParameter<double>("track_prob_min");
-      }
-    }
+          token_RecoVertex(produces()) {}
 
     ~CLUEVertexProducer() override = default;
 
@@ -122,9 +99,9 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     const float ptMax_;
     const bool method2;
     // Parameters for CLUEstering
-    const float dc_{0.2f};    // Side length of box to calculate density
-    const float rhoc_{10.f};  // Minimum energy density to NOT be an outlier
-    const float dm_{0.75f};   // Side length of box to search for followers
+    const float dc_{0.01f};   // Side length of box to calculate density
+    const float rhoc_{1.f};   // Minimum energy density to NOT be an outlier
+    const float dm_{0.01f};   // Side length of box to search for followers
     const int pPBin_{128};    // Average number of points found in a tile
     const bool wtAvg_{true};  // Decides how to copute error
                               // Input and output collections

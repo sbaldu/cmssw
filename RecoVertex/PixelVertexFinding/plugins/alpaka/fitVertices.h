@@ -60,12 +60,12 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vertexFinder {
 
     // compute cluster location
     for (auto i : cms::alpakatools::uniform_elements(acc, nt)) {
-      if (iv[i] > 9990) {
+      if (iv[i] > 9990 || iv[i] < 0) {
         if constexpr (verbose)
           alpaka::atomicAdd(acc, &noise, 1, alpaka::hierarchy::Threads{});
         continue;
       }
-      ALPAKA_ASSERT_ACC(iv[i] >= 0);
+      // ALPAKA_ASSERT_ACC(iv[i] >= 0);
       ALPAKA_ASSERT_ACC(iv[i] < int(foundClusters));
       auto w = 1.f / ezt2[i];
       alpaka::atomicAdd(acc, &zv[iv[i]], zt[i] * w, alpaka::hierarchy::Threads{});
