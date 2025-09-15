@@ -42,6 +42,9 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
           ptMin_(conf.getParameter<double>("PtMin")),
           ptMax_(conf.getParameter<double>("PtMax")),
           method2(conf.getParameter<bool>("Method2")),
+          dc_(conf.getParameter<double>("dc")),
+          rhoc_(conf.getParameter<double>("rhoc")),
+          dm_(conf.getParameter<double>("dm")),
           trackCollName(conf.getParameter<edm::InputTag>("TrackCollection")),
           token_Tracks(consumes(trackCollName)),
           //token_BeamSpot(consumes(conf.getParameter<edm::InputTag>("beamSpot"))),
@@ -56,6 +59,9 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       desc.add<double>("PtMin", 0.5);
       desc.add<double>("PtMax", 75.);
       desc.add<bool>("Method2", true);
+      desc.add<double>("dc", 0.01);
+      desc.add<double>("rhoc", 2.);
+      desc.add<double>("dm", 0.01);
       desc.add<edm::InputTag>("TrackCollection", edm::InputTag("pixelTracks"));
       desc.add<edm::InputTag>("beamSpot", edm::InputTag("offlineBeamSpot"));
       desc.add<std::string>("Finder", "DivisiveVertexFinder");
@@ -99,9 +105,9 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     const float ptMax_;
     const bool method2;
     // Parameters for CLUEstering
-    const float dc_{0.01f};   // Side length of box to calculate density
-    const float rhoc_{1.f};   // Minimum energy density to NOT be an outlier
-    const float dm_{0.01f};   // Side length of box to search for followers
+    const float dc_;          // Side length of box to calculate density
+    const float rhoc_;        // Minimum energy density to NOT be an outlier
+    const float dm_;          // Side length of box to search for followers
     const int pPBin_{128};    // Average number of points found in a tile
     const bool wtAvg_{true};  // Decides how to copute error
                               // Input and output collections
