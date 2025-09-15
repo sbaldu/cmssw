@@ -426,10 +426,12 @@ _vertexFolders = [
     "DQMData/Vertexing/PrimaryVertex",
     "DQMData/Run 1/Vertexing/Run summary/PrimaryVertexV",
     "DQMData/Vertexing/PrimaryVertexV",
+    "DQMData/Run 1/HLT/Run summary/Vertexing/ValidationWRTsim/hltPhase2PixelVertices",
 ]
 _vertexDqmFolders = [
     "DQMData/Run 1/OfflinePV/Run summary/offlinePrimaryVertices",
     "DQMData/OffinePV/offlinePrimaryVertices",
+    "DQMData/Run 1/HLT/Run summary/Vertexing/ValidationWRTsim/hltPhase2PixelVertices",
 ]
 _v0Folders = [
     "DQMData/Run 1/Vertexing/Run summary/V0",
