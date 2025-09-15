@@ -99,7 +99,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         clue::Clusterer<1> clusterer(queue, dc_, rhoc_, dm_, pPBin_);
         clue::PointsDevice<1, Device> d_points(
             queue, nTracks, workspaceView.zt(), workspaceView.ptt2(), workspaceView.iv(), isSeed.data());
-        clusterer.make_clusters(d_points, clue::FlatKernel{.5f}, queue, 256);
+        clusterer.make_clusters(queue, d_points);
         clue::PointsHost<1> h_points(queue, nTracks);
         clue::copyToHost(queue, h_points, d_points);
         alpaka::wait(queue);
