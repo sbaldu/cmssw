@@ -53,6 +53,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
           if (quality[idx] < ::pixelTrack::Quality::highPurity)
             continue;
 
+          // Filter out tracks whose tip is greater than 2mm. No need to use them to compute vertices.
+          if ((reco::tip(tracks_view, idx)*reco::tip(tracks_view, idx))/tracks_view[idx].covariance()(2) > 16)
+            continue;
+
           auto pt = tracks_view[idx].pt();
           // pT min cut
           if (pt < ptMin)
