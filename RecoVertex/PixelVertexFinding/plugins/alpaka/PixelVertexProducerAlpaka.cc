@@ -58,6 +58,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       : EDProducer(conf),
         algo_(conf.getParameter<bool>("oneKernel"),
               conf.getParameter<bool>("useDensity"),
+              conf.getParameter<bool>("useDensityClue"),
               conf.getParameter<bool>("useDBSCAN"),
               conf.getParameter<bool>("useIterative"),
               conf.getParameter<bool>("doSplitting"),
@@ -79,6 +80,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     // Maybe this should become a Plugin Factory
     desc.add<bool>("oneKernel", true);
     desc.add<bool>("useDensity", true);
+    desc.add<bool>("useDensityClue", true);
     desc.add<bool>("useDBSCAN", false);
     desc.add<bool>("useIterative", false);
     desc.add<bool>("doSplitting", true);
