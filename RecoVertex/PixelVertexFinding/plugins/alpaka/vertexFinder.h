@@ -37,6 +37,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vertexFinder {
   public:
     Producer(bool oneKernel,
              bool useDensity,
+             bool useDensityClue,
              bool useDBSCAN,
              bool useIterative,
              bool doSplitting,
@@ -47,6 +48,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vertexFinder {
              )
         : oneKernel_(oneKernel && !(useDBSCAN || useIterative)),
           useDensity_(useDensity),
+          useDensityClue_(useDensityClue),
           useDBSCAN_(useDBSCAN),
           useIterative_(useIterative),
           doSplitting_(doSplitting),
@@ -61,11 +63,12 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vertexFinder {
         Queue &queue, TkSoAConstView const &tracks_view, int maxVertices, float ptMin, float ptMax) const;
 
   private:
-    const bool oneKernel_;     // run everything (cluster,fit,split,sort) in one kernel. Uses only density clusterizer
-    const bool useDensity_;    // use density clusterizer
-    const bool useDBSCAN_;     // use DBScan clusterizer
-    const bool useIterative_;  // use iterative clusterizer
-    const bool doSplitting_;   //run vertex splitting
+    const bool oneKernel_;      // run everything (cluster,fit,split,sort) in one kernel. Uses only density clusterizer
+    const bool useDensity_;     // use density clusterizer
+    const bool useDensityClue_; // use density clusterizer based on CLUE
+    const bool useDBSCAN_;      // use DBScan clusterizer
+    const bool useIterative_;   // use iterative clusterizer
+    const bool doSplitting_;    //run vertex splitting
 
     int minT;       // min number of neighbours to be "core"
     float eps;      // max absolute distance to cluster
