@@ -12,25 +12,21 @@
 #include "DataFormats/HGCalReco/interface/alpaka/HGCalSoAClustersDeviceCollection.h"
 #include "DataFormats/HGCalReco/interface/alpaka/HGCalSoAClustersFilteredMaskDeviceCollection.h"
 
-
 namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
-    class ClusterFilterSoAByAlgoAndSize {
-        public:
-            ClusterFilterSoAByAlgoAndSize(const edm::ParameterSet& config) {}
-            ~ClusterFilterSoAByAlgoAndSize() {}
+  class ClusterFilterSoAByAlgoAndSize {
+  public:
+    ClusterFilterSoAByAlgoAndSize(const edm::ParameterSet& config) {}
+    ~ClusterFilterSoAByAlgoAndSize() {}
 
-            void filter(
-                Queue& queue,
+    void filter(Queue& queue,
                 const HGCalSoAClustersDeviceCollectionConstView layerClusters,
                 HGCalSoAClustersFilteredMaskDeviceCollectionView layerClustersMask,
                 const int mix_cluster_size,
-                const int max_cluster_size
-            );
+                const int max_cluster_size);
 
-        private:
-
-    };
-}
+  private:
+  };
+}  // namespace ALPAKA_ACCELERATOR_NAMESPACE
 
 #endif

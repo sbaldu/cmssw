@@ -1,16 +1,17 @@
 #ifndef RecoLocalCalo_HGCalRecProducers_plugins_alpaka_HGCalLayerClustersSoAAlgoWrapper_h
 #define RecoLocalCalo_HGCalRecProducers_plugins_alpaka_HGCalLayerClustersSoAAlgoWrapper_h
 
-#include <alpaka/alpaka.hpp>
-
 #include "DataFormats/HGCalReco/interface/HGCalSoARecHitsHostCollection.h"
 #include "DataFormats/HGCalReco/interface/alpaka/HGCalSoARecHitsDeviceCollection.h"
 #include "DataFormats/HGCalReco/interface/alpaka/HGCalSoARecHitsExtraDeviceCollection.h"
 #include "DataFormats/HGCalReco/interface/alpaka/HGCalSoAClustersDeviceCollection.h"
 #include "RecoLocalCalo/HGCalRecProducers/interface/alpaka/HGCalSoAClustersExtraDeviceCollection.h"
+#include "RecoLocalCalo/HGCalRecProducers/plugins/alpaka/ConstantsForClusters.h"
 #include "HeterogeneousCore/AlpakaInterface/interface/config.h"
 #include "HeterogeneousCore/AlpakaInterface/interface/traits.h"
 #include "HeterogeneousCore/AlpakaInterface/interface/workdivision.h"
+
+#include <alpaka/alpaka.hpp>
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
@@ -25,6 +26,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
              HGCalSoAClustersDeviceCollection::View outputs,
              HGCalSoAClustersExtraDeviceCollection::View outputs_service) const;
   };
+
 }  // namespace ALPAKA_ACCELERATOR_NAMESPACE
 
 #endif  // RecoLocalCalo_HGCalRecProducers_plugins_alpaka_HGCalLayerClustersSoAAlgoWrapper_h
