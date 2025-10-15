@@ -3,24 +3,18 @@
 
 #include "RecoHGCal/TICL/interface/PatternRecognitionAlgoBaseSoA.h"
 
-
 namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
-    template <typename TILES>
-    class PatternRecognitionByCLUE3DSoA final : public PatternRecognitionAlgoBaseSoAT<TILES> {
-        public:
-            PatternRecognitionByCLUE3DSoA(
-                const edm::ParameterSet& config,
-                edm::ConsumesCollector iC)
-            : PatternRecognitionAlgoBaseSoAT<TILES>(config, iC) {};
+  template <typename TILES>
+  class PatternRecognitionByCLUE3DSoA final : public PatternRecognitionAlgoBaseSoAT<TILES> {
+  public:
+    PatternRecognitionByCLUE3DSoA(const edm::ParameterSet& config, edm::ConsumesCollector iC)
+        : PatternRecognitionAlgoBaseSoAT<TILES>(config, iC){};
 
-            // ~PatternRecognitionbyCLUE3DSoA() override = default;
+    // ~PatternRecognitionbyCLUE3DSoA() override = default;
 
-            void makeTracksters(
-                Queue& queue,
-                const typename PatternRecognitionAlgoBaseSoAT<TILES>::Inputs& inputs
-            ) override;
-    };
-}
+    void makeTracksters(Queue& queue, const typename PatternRecognitionAlgoBaseSoAT<TILES>::Inputs& inputs) override;
+  };
+}  // namespace ALPAKA_ACCELERATOR_NAMESPACE
 
 #endif
