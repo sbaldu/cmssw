@@ -55,13 +55,13 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     static void fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
       edm::ParameterSetDescription desc;
       desc.add<int>("Verbosity", 0);
-      desc.add<int>("maxVertices", 256);
-      desc.add<double>("PtMin", 0.5);
+      desc.add<int>("maxVertices", 1024);
+      desc.add<double>("PtMin", 1.0);
       desc.add<double>("PtMax", 75.);
       desc.add<bool>("Method2", true);
-      desc.add<double>("dc", 0.01);
-      desc.add<double>("rhoc", 2.);
-      desc.add<double>("dm", 0.01);
+      desc.add<double>("dc", 0.02);
+      desc.add<double>("rhoc", 0.001);
+      desc.add<double>("dm", 0.02);
       desc.add<edm::InputTag>("TrackCollection", edm::InputTag("pixelTracks"));
       desc.add<edm::InputTag>("beamSpot", edm::InputTag("offlineBeamSpot"));
       desc.add<std::string>("Finder", "DivisiveVertexFinder");
