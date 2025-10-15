@@ -69,8 +69,8 @@ public:
     // Create a vector of <clusters> locations, where each location holds a
     // vector of <nCells> floats. These vectors are used to compute the time for
     // each cluster.
-    std::vector<std::vector<float>> times(deviceData->metadata().size());
-    std::vector<std::vector<float>> timeErrors(deviceData->metadata().size());
+    // std::vector<std::vector<float>> times(deviceData->metadata().size());
+    // std::vector<std::vector<float>> timeErrors(deviceData->metadata().size());
 
     for (int i = 0; i < deviceData->metadata().size(); ++i) {
       std::vector<std::pair<DetId, float>> thisCluster;
@@ -81,8 +81,8 @@ public:
                              std::move(thisCluster),
                              algoId_);
       clusters->back().setSeed(deviceView.seed(i));
-      times[i].reserve(deviceView.cells(i));
-      timeErrors[i].reserve(deviceView.cells(i));
+      // times[i].reserve(deviceView.cells(i));
+      // timeErrors[i].reserve(deviceView.cells(i));
     }
 
     // Populate hits and fractions required to compute the cluster's time.
@@ -98,22 +98,25 @@ public:
       if (soaCells_v[i].timeError() < 0.f) {
         continue;
       }
-      times[soaRecHitsExtra_v[i].clusterIndex()].push_back(soaCells_v[i].time());
-      timeErrors[soaRecHitsExtra_v[i].clusterIndex()].push_back(
-          1.f / (soaCells_v[i].timeError() * soaCells_v[i].timeError()));
+      // times[soaRecHitsExtra_v[i].clusterIndex()].push_back(soaCells_v[i].time());
+      // timeErrors[soaRecHitsExtra_v[i].clusterIndex()].push_back(
+      //     1.f / (soaCells_v[i].timeError() * soaCells_v[i].timeError()));
     }
 
     // Finally, compute and assign the time to each cluster.
     std::vector<std::pair<float, float>> cluster_times;
-    cluster_times.reserve(clusters->size());
-    hgcalsimclustertime::ComputeClusterTime timeEstimator;
-    for (unsigned i = 0; i < clusters->size(); ++i) {
-      if (detector_ != "BH") {
-        cluster_times.push_back(timeEstimator.fixSizeHighestDensity(times[i], timeErrors[i], hitsTime_));
-      } else {
-        cluster_times.push_back(std::pair<float, float>(-99.f, -1.f));
-      }
-    }
+	cluster_times.reserve(clusters->size());
+	for (auto i = 0; i < deviceView.metadata().size(); ++i) {
+	  cluster_times.emplace_back(std::make_pair(deviceView.time()[i], deviceView.timeError()[i]));
+	}
+    // hgcalsimclustertime::ComputeClusterTime timeEstimator;
+    // for (unsigned i = 0; i < clusters->size(); ++i) {
+    //   if (detector_ != "BH") {
+    //     cluster_times.push_back(timeEstimator.fixSizeHighestDensity(times[i], timeErrors[i], hitsTime_));
+    //   } else {
+    //     cluster_times.push_back(std::pair<float, float>(-99.f, -1.f));
+    //   }
+    // }
 
 #if DEBUG_CLUSTERS_ALPAKA
     auto runNumber = iEvent.eventAuxiliary().run();
