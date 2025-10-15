@@ -174,22 +174,22 @@ namespace ticl {
 
     inline void setBoundaryTime(float t) { boundTime_ = t; };
 
-    inline const Trackster::IterationIndex ticlIteration() const { return (IterationIndex)iterationIndex_; }
+    inline Trackster::IterationIndex ticlIteration() const { return (IterationIndex)iterationIndex_; }
     inline const std::vector<unsigned int> &vertices() const { return vertices_; }
-    inline const unsigned int vertices(int index) const { return vertices_[index]; }
+    inline unsigned int vertices(int index) const { return vertices_[index]; }
     inline const std::vector<float> &vertex_multiplicity() const { return vertex_multiplicity_; }
-    inline const float vertex_multiplicity(int index) const { return vertex_multiplicity_[index]; }
+    inline float vertex_multiplicity(int index) const { return vertex_multiplicity_[index]; }
     inline const std::vector<std::array<unsigned int, 2> > &edges() const { return edges_; }
     inline const edm::ProductID &seedID() const { return seedID_; }
-    inline const int seedIndex() const { return seedIndex_; }
-    inline const float time() const { return time_; }
-    inline const float timeError() const { return timeError_; }
-    inline const float regressed_energy() const { return regressed_energy_; }
-    inline const float raw_energy() const { return raw_energy_; }
-    inline const float raw_em_energy() const { return raw_em_energy_; }
-    inline const float raw_pt() const { return raw_pt_; }
-    inline const float raw_em_pt() const { return raw_em_pt_; }
-    inline const float boundaryTime() const { return boundTime_; };
+    inline int seedIndex() const { return seedIndex_; }
+    inline float time() const { return time_; }
+    inline float timeError() const { return timeError_; }
+    inline float regressed_energy() const { return regressed_energy_; }
+    inline float raw_energy() const { return raw_energy_; }
+    inline float raw_em_energy() const { return raw_em_energy_; }
+    inline float raw_pt() const { return raw_pt_; }
+    inline float raw_em_pt() const { return raw_em_pt_; }
+    inline float boundaryTime() const { return boundTime_; };
     inline const Vector &barycenter() const { return barycenter_; }
     inline const std::array<float, 3> &eigenvalues() const { return eigenvalues_; }
     inline const std::array<Vector, 3> &eigenvectors() const { return eigenvectors_; }
@@ -197,7 +197,7 @@ namespace ticl {
     inline const std::array<float, 3> &sigmas() const { return sigmas_; }
     inline const std::array<float, 3> &sigmasPCA() const { return sigmasPCA_; }
     inline const std::array<float, 8> &id_probabilities() const { return id_probabilities_; }
-    inline const float id_probabilities(int index) const { return id_probabilities_[index]; }
+    inline float id_probabilities(int index) const { return id_probabilities_[index]; }
 
     // convenience method to return the ID probability for a certain particle type
     inline float id_probability(ParticleType type) const {
