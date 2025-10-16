@@ -59,9 +59,9 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       desc.add<double>("PtMin", 1.0);
       desc.add<double>("PtMax", 75.);
       desc.add<bool>("Method2", true);
-      desc.add<double>("dc", 0.02);
-      desc.add<double>("rhoc", 0.001);
-      desc.add<double>("dm", 0.02);
+      desc.add<double>("dc", 0.04);
+      desc.add<double>("rhoc", 0.01);
+      desc.add<double>("dm", 0.04);
       desc.add<edm::InputTag>("TrackCollection", edm::InputTag("pixelTracks"));
       desc.add<edm::InputTag>("beamSpot", edm::InputTag("offlineBeamSpot"));
       desc.add<std::string>("Finder", "DivisiveVertexFinder");
