@@ -10,7 +10,6 @@
 #include "clusterTracksDBSCAN.h"
 #include "clusterTracksIterative.h"
 #include "clusterTracksByDensity.h"
-#include "clusterTracksByDensityClue.h"
 #include "fitVertices.h"
 #include "sortByPt2.h"
 #include "splitVertices.h"
@@ -186,9 +185,6 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         if (useDensity_) {
         alpaka::exec<Acc1D>(
           queue, finderSorterWorkDiv, ClusterTracksByDensityKernel{}, data, trkdata, ws, minT, eps, errmax, chi2max);
-      } else if (useDensityClue_) {
-        alpaka::exec<Acc1D>(
-          queue, finderSorterWorkDiv, ClusterTracksByDensityClueKernel{}, data, trkdata, ws, minT, eps, errmax, chi2max);
       } else if (useDBSCAN_) {
         alpaka::exec<Acc1D>(
           queue, finderSorterWorkDiv, ClusterTracksDBSCAN{}, data, trkdata, ws, minT, eps, errmax, chi2max);
