@@ -90,8 +90,9 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       auto const& tracks_d = event.get(token_Tracks);
 
       clueVertexFinder::Producer vertexProducer(dc_, rhoc_, dm_, pPBin_, wtAvg_);
-      event.emplace(token_RecoVertex,
-                    std::move(vertexProducer.makeAsync(event.queue(), tracks_d.view(), maxVertices_, ptMin_, ptMax_)));
+      event.emplace(
+          token_RecoVertex,
+          std::move(vertexProducer.makeAsync(event.queue(), tracks_d.view().tracks(), maxVertices_, ptMin_, ptMax_)));
     }
 
   private:
@@ -113,7 +114,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                               // Input and output collections
     const edm::InputTag trackCollName;
     device::EDGetToken<TkSoADevice> token_Tracks;
-    device::EDPutToken<ZVertexSoACollection> token_RecoVertex;
+    device::EDPutToken<reco::ZVertexSoACollection> token_RecoVertex;
   };
 }  // namespace ALPAKA_ACCELERATOR_NAMESPACE
 

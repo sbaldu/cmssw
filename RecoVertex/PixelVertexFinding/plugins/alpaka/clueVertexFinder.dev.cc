@@ -22,8 +22,6 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                                     ::vertexFinder::PixelVertexWorkSpaceSoAView ws,
                                     float ptMin,
                                     float ptMax) const {
-        auto const* quality = tracks_view.quality();
-
         for (auto idx : cms::alpakatools::uniform_elements(acc, tracks_view.nTracks())) {
           [[maybe_unused]] auto nHits = ::reco::nHits(tracks_view, idx);
           ALPAKA_ASSERT_ACC(nHits >= 3);
@@ -36,7 +34,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
             continue;
 
           // use only "high purity" track
-          if (quality[idx] < ::pixelTrack::Quality::highPurity)
+          if (tracks_view[idx].quality() < ::pixelTrack::Quality::highPurity)
             continue;
 
           auto pt = tracks_view[idx].pt();
@@ -57,16 +55,16 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       }
     };
 
-    ZVertexSoACollection Producer::makeAsync(
+    reco::ZVertexSoACollection Producer::makeAsync(
         Queue& queue, ::reco::TrackSoAConstView const& tracks_view, int maxVertices, float ptMin, float ptMax) {
       const auto maxTracks = tracks_view.metadata().size();
       std::cout << "max tracks = " << maxTracks << std::endl;
-      ZVertexSoACollection vertices({{maxVertices, maxTracks}}, queue);
-      auto verticesView = vertices.view();
-      auto vertexTrackDataView = vertices.view<::reco::ZVertexTracksSoA>();
+      reco::ZVertexSoACollection vertices(queue, maxVertices, maxTracks);
+      auto verticesView = vertices.view().zvertex();
+      auto vertexTracks = vertices.view().zvertexTracks();
 
       // Initialize the workspace
-      vertexFinder::PixelVertexWorkSpaceSoADevice workspace(maxTracks, queue);
+      vertexFinder::PixelVertexWorkSpaceSoADevice workspace(queue, maxTracks);
       auto workspaceView = workspace.view();
       const auto initWorkDiv = cms::alpakatools::make_workdiv<Acc1D>(1, 1);
       alpaka::exec<Acc1D>(
@@ -76,15 +74,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       const uint32_t blockSize = 128;
       const uint32_t numberOfBlocks = cms::alpakatools::divide_up_by(maxTracks + blockSize - 1, blockSize);
       const auto loadTracksWorkDiv = cms::alpakatools::make_workdiv<Acc1D>(numberOfBlocks, blockSize);
-      alpaka::exec<Acc1D>(queue,
-                          loadTracksWorkDiv,
-                          LoadTracks{},
-                          tracks_view,
-                          verticesView,
-                          vertexTrackDataView,
-                          workspaceView,
-                          ptMin,
-                          ptMax);
+      alpaka::exec<Acc1D>(
+          queue, loadTracksWorkDiv, LoadTracks{}, tracks_view, verticesView, vertexTracks, workspaceView, ptMin, ptMax);
 
       // Copy number of tracks to host
       auto nTracksBuf = cms::alpakatools::make_host_buffer<uint32_t>(queue);
@@ -94,16 +85,11 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
       // Run CLUEstering
       if (nTracks > 0) {
-        auto isSeed =
-            cms::alpakatools::make_device_buffer<int[]>(queue, nTracks);  // temporary buffer needed by CLUEstering
         clue::Clusterer<1> clusterer(queue, dc_, rhoc_, dm_, pPBin_);
-        clue::PointsDevice<1, Device> d_points(
-            queue, nTracks, workspaceView.zt(), workspaceView.ptt2(), workspaceView.iv(), isSeed.data());
+        clue::PointsDevice<1, float, Device> d_points(
+            queue, nTracks, workspaceView.zt(), workspaceView.ptt2(), workspaceView.iv());
         clusterer.make_clusters(queue, d_points);
-        clue::PointsHost<1> h_points(queue, nTracks);
-        clue::copyToHost(queue, h_points, d_points);
-        alpaka::wait(queue);
-        uint32_t nVertices = std::accumulate(h_points.isSeed().data(), h_points.isSeed().data() + h_points.size(), 0u);
+        uint32_t nVertices = d_points.n_clusters();
         alpaka::memcpy(queue,
                        cms::alpakatools::make_device_view<uint32_t>(queue, verticesView.nvFinal()),
                        cms::alpakatools::make_host_view<uint32_t>(nVertices));
@@ -116,7 +102,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                           finderSorterWorkDiv,
                           ALPAKA_ACCELERATOR_NAMESPACE::vertexFinder::FitVerticesKernel{},
                           verticesView,
-                          vertexTrackDataView,
+                          vertexTracks,
                           workspaceView,
                           maxChi2ForFirstFit);
       const auto splitterFitterWorkDiv = cms::alpakatools::make_workdiv<Acc1D>(1024, 128);
@@ -124,21 +110,21 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                           splitterFitterWorkDiv,
                           ALPAKA_ACCELERATOR_NAMESPACE::vertexFinder::SplitVerticesKernel{},
                           verticesView,
-                          vertexTrackDataView,
+                          vertexTracks,
                           workspaceView,
                           maxChi2ForSplit);
       alpaka::exec<Acc1D>(queue,
                           finderSorterWorkDiv,
                           ALPAKA_ACCELERATOR_NAMESPACE::vertexFinder::FitVerticesKernel{},
                           verticesView,
-                          vertexTrackDataView,
+                          vertexTracks,
                           workspaceView,
                           maxChi2ForFinalFit);
       alpaka::exec<Acc1D>(queue,
                           finderSorterWorkDiv,
                           ALPAKA_ACCELERATOR_NAMESPACE::vertexFinder::SortByPt2Kernel{},
                           verticesView,
-                          vertexTrackDataView,
+                          vertexTracks,
                           workspaceView);
 
       return vertices;
