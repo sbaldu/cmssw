@@ -37,9 +37,7 @@
 #include "RecoVertex/PixelVertexFinding/interface/PixelVertexWorkSpaceLayout.h"
 #include "RecoVertex/PixelVertexFinding/plugins/alpaka/PixelVertexWorkSpaceSoADeviceAlpaka.h"
 
-#include "./CLUE/include/CLUEstering/CLUEstering.hpp"
-
-/*test*/
+#include "CLUEstering/CLUEstering.hpp"
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE {
   namespace clueVertexFinder {
@@ -51,7 +49,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
       ~Producer() = default;
 
-      ZVertexSoACollection makeAsync(
+      reco::ZVertexSoACollection makeAsync(
           Queue& queue, ::reco::TrackSoAConstView const& tracks_view, int maxVertices, float ptMin, float ptMax);
 
     private:

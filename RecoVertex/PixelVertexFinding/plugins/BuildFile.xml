@@ -26,6 +26,7 @@
 
 <library file="alpaka/*.cc" name="RecoPixelVertexingPixelVertexFindingPluginsPortable">
   <use name="alpaka"/>
+  <use name="CLUEstering"/>
   <use name="DataFormats/Portable"/>
   <use name="DataFormats/TrackSoA"/>
   <use name="DataFormats/VertexSoA"/>
