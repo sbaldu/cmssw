@@ -85,7 +85,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
       // Run CLUEstering
       if (nTracks > 0) {
-        clue::Clusterer<1> clusterer(queue, dc_, rhoc_, dm_, pPBin_);
+        clue::Clusterer<1> clusterer(queue, dc_, rhoc_, dm_);
         clue::PointsDevice<1, float, Device> d_points(
             queue, nTracks, workspaceView.zt(), workspaceView.ptt2(), workspaceView.iv());
         clusterer.make_clusters(queue, d_points);
