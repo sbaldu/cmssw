@@ -41,11 +41,5 @@ alpakaValidationHLT.toReplaceWith(HLTTrackingSequenceSerialSync,
 
 from Configuration.ProcessModifiers.ngtScouting_cff import ngtScouting
 from Configuration.ProcessModifiers.trackingLST_cff import trackingLST
-(ngtScouting & ~trackingLST).toReplaceWith(HLTTrackingSequence, HLTTrackingSequence.copyAndExclude([HLTInitialStepSequence]))
-
-from Configuration.ProcessModifiers.hltPhase2LegacyTracking_cff import hltPhase2LegacyTracking
-hltPhase2LegacyTracking.toReplaceWith(HLTTrackingSequence, _HLTTrackingSequenceLegacy)
-
-from Configuration.ProcessModifiers.clueVertexing_cff import clueVertexing
-from ..modules.clueVertexProducer_cfi import clueVertexProducer
-clueVertexing.toReplaceWith(HLTTrackingSequence, cms.Sequence(HLTItLocalRecoSequence+HLTOtLocalRecoSequence+hltTrackerClusterCheck+HLTPhase2PixelTracksSequence+clueVertexProducer+hltPhase2PixelVertices+HLTInitialStepSequence+HLTHighPtTripletStepSequence+hltGeneralTracks))
+(ngtScouting & trackingLST).toReplaceWith(HLTTrackingSequence, HLTTrackingSequence.copyAndExclude([HLTHighPtTripletStepSequence]))
+(ngtScouting & ~trackingLST).toReplaceWith(HLTTrackingSequence, HLTTrackingSequence.copyAndExclude([HLTInitialStepSequence,HLTHighPtTripletStepSequence]))
