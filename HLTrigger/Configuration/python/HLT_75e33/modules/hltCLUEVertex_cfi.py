@@ -1,9 +1,13 @@
 import FWCore.ParameterSet.Config as cms
 
-clueVertexProducer  = cms.EDProducer('CLUEVertexProducer@alpaka',
+hltCLUEVertex = cms.EDProducer('CLUEVertexProducer@alpaka',
     Verbosity = cms.int32(0),
     PtMin = cms.double(1),
     Method2 = cms.bool(True),
+    dc = cms.double(0.04),
+    rhoc = cms.double(40.),
+    dm = cms.double(0.04),
+    seed_dc = cms.double(0.1),
     TrackCollection = cms.InputTag('hltPhase2PixelTracksSoA'),
     # beamSpot = cms.InputTag('offlineBeamSpot'),
     Finder = cms.string('DivisiveVertexFinder'),
