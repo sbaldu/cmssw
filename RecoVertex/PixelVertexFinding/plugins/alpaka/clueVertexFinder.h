@@ -44,8 +44,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
     class Producer {
     public:
-      Producer(float dc, float rhoc, float dm, int pPBin, bool wtAvg)
-          : dc_(dc), rhoc_(rhoc), dm_(dm), pPBin_(pPBin), wtAvg_(wtAvg) {}
+      Producer(float dc, float rhoc, float dm, float seed_dc, bool wtAvg)
+          : dc_(dc), rhoc_(rhoc), dm_(dm), seed_dc_(seed_dc), wtAvg_(wtAvg) {}
 
       ~Producer() = default;
 
@@ -56,7 +56,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       float dc_;
       float rhoc_;
       float dm_;
-      int pPBin_;
+      float seed_dc_;
       bool wtAvg_;
     };
 

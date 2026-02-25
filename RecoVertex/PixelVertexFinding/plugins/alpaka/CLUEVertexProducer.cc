@@ -45,6 +45,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
           dc_(conf.getParameter<double>("dc")),
           rhoc_(conf.getParameter<double>("rhoc")),
           dm_(conf.getParameter<double>("dm")),
+          seed_dc_(conf.getParameter<double>("seed_dc")),
           trackCollName(conf.getParameter<edm::InputTag>("TrackCollection")),
           token_Tracks(consumes(trackCollName)),
           //token_BeamSpot(consumes(conf.getParameter<edm::InputTag>("beamSpot"))),
@@ -62,6 +63,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       desc.add<double>("dc", 0.04);
       desc.add<double>("rhoc", 0.01);
       desc.add<double>("dm", 0.04);
+      desc.add<double>("seed_dc", 0.04);
       desc.add<edm::InputTag>("TrackCollection", edm::InputTag("pixelTracks"));
       desc.add<edm::InputTag>("beamSpot", edm::InputTag("offlineBeamSpot"));
       desc.add<std::string>("Finder", "DivisiveVertexFinder");
@@ -80,16 +82,14 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       }
 
       // check label
-
       descriptions.addWithDefaultLabel(desc);
-
-      //descriptions.add("CLUEVertex", desc);
     }
 
     void produce(edm::StreamID sid, device::Event& event, device::EventSetup const&) const override {
       auto const& tracks_d = event.get(token_Tracks);
 
-      clueVertexFinder::Producer vertexProducer(dc_, rhoc_, dm_, pPBin_, wtAvg_);
+      std::cout << "dc = " << dc_ << " rhoc = " << rhoc_ << " dm = " << dm_ << " seed_dc = " << seed_dc_ << std::endl;
+      clueVertexFinder::Producer vertexProducer(dc_, rhoc_, dm_, seed_dc_, wtAvg_);
       event.emplace(
           token_RecoVertex,
           std::move(vertexProducer.makeAsync(event.queue(), tracks_d.view().tracks(), maxVertices_, ptMin_, ptMax_)));
@@ -109,7 +109,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     const float dc_;          // Side length of box to calculate density
     const float rhoc_;        // Minimum energy density to NOT be an outlier
     const float dm_;          // Side length of box to search for followers
-    const int pPBin_{128};    // Average number of points found in a tile
+    const float seed_dc_;     // Separation for seed promotion
     const bool wtAvg_{true};  // Decides how to copute error
                               // Input and output collections
     const edm::InputTag trackCollName;
