@@ -99,198 +99,198 @@ void HGCalCLUEAlgoT<T, STRATEGY>::populate(const HGCRecHitCollection &hits) {
 // input (reset should be called between events)
 template <typename T, typename STRATEGY>
 void HGCalCLUEAlgoT<T, STRATEGY>::makeClusters() {
-  float delta;
-  if constexpr (std::is_same_v<STRATEGY, HGCalSiliconStrategy>) {
-    // maximum search distance (critical distance) for local density
-    // calculation
-    float delta_c;
-    if (i % maxlayer_ < lastLayerEE_)
-      delta_c = vecDeltas_[0];
-    else if (i % maxlayer_ < (firstLayerBH_ - 1))
-      delta_c = vecDeltas_[1];
-    else
-      delta_c = vecDeltas_[2];
-    delta = delta_c;
-  } else {
-    float delta_r = vecDeltas_[3];
-    delta = delta_r;
-  }
-  auto clusterer = clue::Clusterer<2>(delta);
-  auto queue = clue::get_queue(0u);
+  for (auto l = 0u; l < maxlayer_; ++l) {
+    float delta;
+    if constexpr (std::is_same_v<STRATEGY, HGCalSiliconStrategy>) {
+      // maximum search distance (critical distance) for local density
+      // calculation
+      float delta_c;
+      if (l % maxlayer_ < lastLayerEE_)
+        delta_c = vecDeltas_[0];
+      else if (l % maxlayer_ < (firstLayerBH_ - 1))
+        delta_c = vecDeltas_[1];
+      else
+        delta_c = vecDeltas_[2];
+      delta = delta_c;
+    } else {
+      float delta_r = vecDeltas_[3];
+      delta = delta_r;
+    }
 
-  LogDebug("HGCalCLUEAlgo") << "maxlayer: " << maxlayer_ << " lastLayerEE: " << lastLayerEE_
-                            << " firstLayerBH: " << firstLayerBH_ << "\n";
-  for (auto l = 0; l < maxlayer_; ++l) {
-    auto points = clue::PointsHost<2>(queue, cells_[l].dim1.size(), cells_[l].dim1, cells_[l].dim2, cells_[l].weight);
-    clusterer.make_clusters(points);
-    numberOfClustersPerLayer_[l] = points.n_clusters();
-  }
+    LogDebug("HGCalCLUEAlgo") << "maxlayer: " << maxlayer_ << " lastLayerEE: " << lastLayerEE_
+                              << " firstLayerBH: " << firstLayerBH_ << "\n";
+    for (auto l = 0; l < maxlayer_; ++l) {
+      auto clusterer = clue::Clusterer<2>(delta, kappa_);
+      auto queue = clue::get_queue(0u);
+      auto points = clue::PointsHost<2>(
+          queue, cells_[l].dim1.size(), cells_[l].dim1, cells_[l].dim2, cells_[l].weight, cells_[l].clusterIndex);
+      points.set_density_uncertainty(cells_[l].sigmaNoise);
+      clusterer.make_clusters(points);
+      numberOfClustersPerLayer_[l] = points.n_clusters();
+    }
 #if DEBUG_CLUSTERS_ALPAKA
-  hgcalUtils::DumpLegacySoA dumperLegacySoA;
-  dumperLegacySoA.dumpInfos(cells_, moduleType_);
+    hgcalUtils::DumpLegacySoA dumperLegacySoA;
+    dumperLegacySoA.dumpInfos(cells_, moduleType_);
 #endif
-}
-
-template <typename T, typename STRATEGY>
-std::pair<reco::CaloClusterHostCollection, PortableHostCollection<ticl::AssociationMap<uint32_t, ticl::HitAndShared>>>
-HGCalCLUEAlgoT<T, STRATEGY>::getClusters(bool) {
-  std::vector<int> offsets(numberOfClustersPerLayer_.size(), 0);
-
-  int maxClustersOnLayer = numberOfClustersPerLayer_[0];
-
-  for (unsigned layerId = 1; layerId < offsets.size(); ++layerId) {
-    offsets[layerId] = offsets[layerId - 1] + numberOfClustersPerLayer_[layerId - 1];
-
-    maxClustersOnLayer = std::max(maxClustersOnLayer, numberOfClustersPerLayer_[layerId]);
   }
 
-  auto totalNumberOfClusters = offsets.back() + numberOfClustersPerLayer_.back();
-  // clusters_v_.resize(totalNumberOfClusters);
-  std::vector<std::vector<int>> cellsIdInCluster;
-  cellsIdInCluster.reserve(maxClustersOnLayer);
-  reco::CaloClusterHostCollection layer_clusters(cms::alpakatools::host(),
-                                                 totalNumberOfClusters,
-                                                 totalNumberOfClusters,
-                                                 totalNumberOfClusters,
-                                                 totalNumberOfClusters);
-  // FIXME: put the real number of hits
-  PortableHostCollection<ticl::AssociationMap<uint32_t, ticl::HitAndShared>> hits_associations(
-      cms::alpakatools::host(), totalNumberOfClusters, 1);
+  template <typename T, typename STRATEGY>
+  ticl::LayerClustersAndAssociations HGCalCLUEAlgoT<T, STRATEGY>::getClusters(bool) {
+    std::vector<int> offsets(numberOfClustersPerLayer_.size(), 0);
+    int maxClustersOnLayer = numberOfClustersPerLayer_[0];
+    for (unsigned layerId = 1; layerId < offsets.size(); ++layerId) {
+      offsets[layerId] = offsets[layerId - 1] + numberOfClustersPerLayer_[layerId - 1];
+      maxClustersOnLayer = std::max(maxClustersOnLayer, numberOfClustersPerLayer_[layerId]);
+    }
+    auto totalNumberOfClusters = offsets.back() + numberOfClustersPerLayer_.back();
 
-  std::vector<ticl::HitAndShared> detid_and_fractions;
-  std::vector<int> cluster_hit_associations;
-  for (unsigned int layerId = 0; layerId < 2 * maxlayer_ + 2; ++layerId) {
-    auto queue = clue::get_queue(0u);
-    auto points = clue::PointsHost<2>(
-        queue, cells_[layerId].dim1.size(), cells_[layerId].dim1, cells_[layerId].dim2, cells_[layerId].weight);
+    // std::vector<std::vector<int>> cellsIdInCluster;
+    // cellsIdInCluster.reserve(maxClustersOnLayer);
+    const auto total_rechits = std::accumulate(
+        cells_.begin(), cells_.end(), 0, [](auto acc, const auto &cell) { return acc + cell.dim1.size(); });
+    ticl::LayerClustersAndAssociations clusters_and_associations(totalNumberOfClusters, total_rechits);
 
-    std::ranges::copy(points.clusterIndexes(), std::back_inserter(cluster_hit_associations));
+    std::vector<ticl::HitAndFraction> detid_and_fractions;
+    std::vector<int> cluster_hit_associations;
+    for (unsigned int layerId = 0; layerId < 2 * maxlayer_ + 2; ++layerId) {
+      auto queue = clue::get_queue(0u);
+      auto points = clue::PointsHost<2>(queue,
+                                        cells_[layerId].dim1.size(),
+                                        cells_[layerId].dim1,
+                                        cells_[layerId].dim2,
+                                        cells_[layerId].weight,
+                                        cells_[layerId].clusterIndex);
 
-    auto clusters = clue::get_clusters(points);
-    auto to_hit_and_fraction = [&](auto idx) { return std::make_pair(cells_[layerId].detid[idx], -1.f); };
-    std::ranges::copy(clusters | std::views::transform(to_hit_and_fraction), std::back_inserter(detid_and_fractions));
-    for (auto cl = 0; cl < clusters.size(); ++cl) {
-      const auto cluster = clusters[cl];
-      auto x = 0.f;
-      auto y = 0.f;
-      const auto z = cells_[layerId].layerDim3;
-      auto energy = std::reduce(
-          cluster.begin(), cluster.end(), 0.f, [](auto acc, auto idx) { return acc + points.weights()[idx]; });
-      auto max_energy_it = std::ranges::max_element(points.weights);
-      const auto max_energy = *max_energy_it;
-      const auto max_energy_idx = std::distance(points.weights.begin(), max_energy_it);
-      const auto max_energy_detid = cells_[layerId].detid[max_energy_id];
+      std::ranges::copy(points.clusterIndexes(), std::back_inserter(cluster_hit_associations));
 
-      if constexpr (std::is_same_v<STRATEGY, HGCalSiliconStrategy>) {
-        auto thick = rhtools_.getSiThickIndex(max_energy_detid);
-        auto total_weight_log = 0.f;
-        for (auto p : cluster) {
-          const auto d1 = points.coords(0)[p] - points.coords(0)[max_energy_idx];
-          const auto d2 = points.coords(1)[p] - points.coords(1)[max_energy_idx];
-          if ((d1 * d1 + d2 * d2) < positionDeltaRho2_) {
-            if (thick < 0 or (not std::cmp_less(thick, thresholdW0_.size()))) {
-              throw cms::Exception("HGCalClusterOutOfBounds")
-                  << "the thickness " << thick << " for DetId " << maxEnergyDetId.rawId() << " is not within the size "
-                  << thresholdW0_.size();
+      auto clusters = clue::get_clusters(points);
+      auto to_hit_and_fraction = [&](auto idx) { return ticl::HitAndFraction{cells_[layerId].detid[idx], -1.f}; };
+      std::ranges::copy(clusters | std::views::transform(to_hit_and_fraction), std::back_inserter(detid_and_fractions));
+      for (auto cl = 0u; cl < clusters.size(); ++cl) {
+        const auto cluster = clusters[cl];
+        auto x = 0.f;
+        auto y = 0.f;
+        const auto z = cells_[layerId].layerDim3;
+        auto energy = std::reduce(
+            cluster.begin(), cluster.end(), 0.f, [&](auto acc, auto idx) { return acc + points.weights()[idx]; });
+        auto max_energy_it = std::ranges::max_element(points.weights());
+        const auto max_energy_idx = std::distance(points.weights().begin(), max_energy_it);
+        const auto max_energy_detid = cells_[layerId].detid[max_energy_idx];
+
+        if constexpr (std::is_same_v<STRATEGY, HGCalSiliconStrategy>) {
+          auto thick = rhtools_.getSiThickIndex(max_energy_detid);
+          auto total_weight_log = 0.f;
+          for (auto p : cluster) {
+            const auto d1 = points.coords(0)[p] - points.coords(0)[max_energy_idx];
+            const auto d2 = points.coords(1)[p] - points.coords(1)[max_energy_idx];
+            if ((d1 * d1 + d2 * d2) < positionDeltaRho2_) {
+              if (thick < 0 or (not std::cmp_less(thick, thresholdW0_.size()))) {
+                throw cms::Exception("HGCalClusterOutOfBounds")
+                    << "the thickness " << thick << " for DetId " << maxEnergyDetId.rawId()
+                    << " is not within the size " << thresholdW0_.size();
+              }
+              auto Wi = std::max(thresholdW0_[thick] + std::log(points.weights()[p] / energy), 0.);
+              if (std::isnan(Wi)) {
+                throw cms::Exception("HGCalClusterNan")
+                    << "The weight for cell " << cellIdx << " is a nan. The values in the calculation are weight "
+                    << cellsOnLayer.weight[cellIdx] << " energy " << energy;
+              }
+              x += points.coords(0)[p] * Wi;
+              y += points.coords(1)[p] * Wi;
+              total_weight_log += Wi;
             }
-            auto Wi = std::max(thresholdW0_[thick] + std::log(points.weights()[p] / energy), 0.f);
-            if (std::isnan(Wi)) {
-              throw cms::Exception("HGCalClusterNan")
-                  << "The weight for cell " << cellIdx << " is a nan. The values in the calculation are weight "
-                  << cellsOnLayer.weight[cellIdx] << " energy " << energy;
-            }
-            x += points.coords(0)[p] * Wi;
-            y += points.coords(1)[p] * Wi;
-            total_weight_log += Wi;
           }
-        }
 
-        if (total_weight_log != 0.) {
-          auto inv_tot_weight = 1.f / total_weight_log;
-          x *= inv_tot_weight;
-          y *= inv_tot_weight;
+          if (total_weight_log != 0.) {
+            auto inv_tot_weight = 1.f / total_weight_log;
+            x *= inv_tot_weight;
+            y *= inv_tot_weight;
+          } else {
+            x = points.coords(0)[max_energy_idx];
+            y = points.coords(1)[max_energy_idx];
+          }
         } else {
-          x = cellsOnLayer.dim1[maxEnergyCellIndex];
-          y = cellsOnLayer.dim2[maxEnergyCellIndex];
+          const auto centroid = clue::weighted_cluster_centroid(points, cl);
+          x = centroid[0];
+          y = centroid[1];
         }
-      } else {
-        const auto centroid = clue::weighted_cluster_centroid(points, cl);
-        x = centroid[0];
-        y = centroid[1];
+
+        if (std::isnan(x) or std::isnan(y)) {
+          throw cms::Exception("HGCalClusterNan")
+              << "while calculating the position of cluster seeded by " << seedDetId->rawId() << " we got x = " << x
+              << " y = " << y << " z = " << z;
+        }
+
+        auto globalClusterIndex = cl + offsets[layerId];
+        auto &layer_clusters_view = clusters_and_associations.layer_clusters->view();
+        layer_clusters_view.position().x()[globalClusterIndex] = x;
+        layer_clusters_view.position().y()[globalClusterIndex] = y;
+        layer_clusters_view.position().z()[globalClusterIndex] = z;
+        layer_clusters_view.energy().energy()[globalClusterIndex] = energy;
+        layer_clusters_view.energy().correctedEnergy()[globalClusterIndex] = -1.f;
+        layer_clusters_view.energy().correctedEnergyUncertainty()[globalClusterIndex] = -1.f;
+        layer_clusters_view.indexes().caloID()[globalClusterIndex] = reco::CaloID::DET_HGCAL_ENDCAP;
+        layer_clusters_view.indexes().algoID()[globalClusterIndex] = algoId_;
+        // TODO: do we really care about the seed?
+        // layer_clusters.view().indexes().seedID()[globalClusterIndex] = seedDetId;
+        layer_clusters_view.indexes().flags()[globalClusterIndex] = 0;
+      }
+    }
+    alpaka_serial_sync::Queue queue(cms::alpakatools::host());
+    ticl::associator::fill<alpaka_serial_sync::Acc1D>(
+        queue,
+        clusters_and_associations.hits_and_fractions->view(),
+        static_cast<std::span<const int>>(cluster_hit_associations),
+        static_cast<std::span<const ticl::HitAndFraction>>(detid_and_fractions));
+
+    return clusters_and_associations;
+  }
+
+  template <typename T, typename STRATEGY>
+  void HGCalCLUEAlgoT<T, STRATEGY>::computeThreshold() {
+    // To support the TDR geometry and also the post-TDR one (v9 onwards), we
+    // need to change the logic of the vectors containing signal to noise and
+    // thresholds. The first 3 indices will keep on addressing the different
+    // thicknesses of the Silicon detectors in CE_E , the next 3 indices will
+    // address the thicknesses of the Silicon detectors in CE_H, while the last
+    // one, number 6 (the seventh) will address the Scintillators. This change
+    // will support both geometries at the same time.
+
+    if (initialized_)
+      return;  // only need to calculate thresholds once
+
+    initialized_ = true;
+
+    std::vector<double> dummy;
+
+    dummy.resize(maxNumberOfThickIndices_ + !isNose_,
+                 0);  // +1 to accomodate for the Scintillators
+    thresholds_.resize(maxlayer_, dummy);
+    v_sigmaNoise_.resize(maxlayer_, dummy);
+
+    for (unsigned ilayer = 1; ilayer <= maxlayer_; ++ilayer) {
+      for (unsigned ithick = 0; ithick < maxNumberOfThickIndices_; ++ithick) {
+        float sigmaNoise = 0.001f * fcPerEle_ * nonAgedNoises_[ithick] * dEdXweights_[ilayer] /
+                           (fcPerMip_[ithick] * thicknessCorrection_[ithick]);
+        thresholds_[ilayer - 1][ithick] = sigmaNoise * ecut_;
+        v_sigmaNoise_[ilayer - 1][ithick] = sigmaNoise;
+        LogDebug("HGCalCLUEAlgo") << "ilayer: " << ilayer << " nonAgedNoises: " << nonAgedNoises_[ithick]
+                                  << " fcPerEle: " << fcPerEle_ << " fcPerMip: " << fcPerMip_[ithick]
+                                  << " noiseMip: " << fcPerEle_ * nonAgedNoises_[ithick] / fcPerMip_[ithick]
+                                  << " sigmaNoise: " << sigmaNoise << "\n";
       }
 
-      if (std::isnan(x) or std::isnan(y)) {
-        throw cms::Exception("HGCalClusterNan")
-            << "while calculating the position of cluster seeded by " << seedDetId->rawId() << " we got x = " << x
-            << " y = " << y << " z = " << z;
+      if (!isNose_) {
+        float scintillators_sigmaNoise = 0.001f * noiseMip_ * dEdXweights_[ilayer] / sciThicknessCorrection_;
+        thresholds_[ilayer - 1][maxNumberOfThickIndices_] = ecut_ * scintillators_sigmaNoise;
+        v_sigmaNoise_[ilayer - 1][maxNumberOfThickIndices_] = scintillators_sigmaNoise;
+        LogDebug("HGCalCLUEAlgo") << "ilayer: " << ilayer << " noiseMip: " << noiseMip_
+                                  << " scintillators_sigmaNoise: " << scintillators_sigmaNoise << "\n";
       }
-
-      auto globalClusterIndex = cellsOnLayer.clusterIndex[cl[0]] + firstClusterIdx;
-
-      layer_clusters.view().position().x()[globalClusterIndex] = x;
-      layer_clusters.view().position().y()[globalClusterIndex] = y;
-      layer_clusters.view().position().z()[globalClusterIndex] = z;
-      layer_clusters.view().energy().energy()[globalClusterIndex] = energy;
-      layer_clusters.view().energy().correctedEnergy()[globalClusterIndex] = -1.f;
-      layer_clusters.view().energy().correctedEnergyUncertainty()[globalClusterIndex] = -1.f;
-      layer_clusters.view().indexes().caloID()[globalClusterIndex] = reco::CaloID::DET_HGCAL_ENDCAP;
-      layer_clusters.view().indexes().algoID()[globalClusterIndex] = algoId_;
-      layer_clusters.view().indexes().seedID()[globalClusterIndex] = seedDetId;
-      layer_clusters.view().indexes().flags()[globalClusterIndex] = 0;
     }
   }
-  alpaka_serial_sync::Queue queue(cms::alpakatools::host());
-  // ticl::associator::fill<alpaka_serial_sync::Acc1D>(
-  //     queue, hits_associations, cluster_hit_associations, detid_and_fractions);
 
-  return std::make_pair(layer_clusters, hits_associations);
-}
-
-template <typename T, typename STRATEGY>
-void HGCalCLUEAlgoT<T, STRATEGY>::computeThreshold() {
-  // To support the TDR geometry and also the post-TDR one (v9 onwards), we
-  // need to change the logic of the vectors containing signal to noise and
-  // thresholds. The first 3 indices will keep on addressing the different
-  // thicknesses of the Silicon detectors in CE_E , the next 3 indices will
-  // address the thicknesses of the Silicon detectors in CE_H, while the last
-  // one, number 6 (the seventh) will address the Scintillators. This change
-  // will support both geometries at the same time.
-
-  if (initialized_)
-    return;  // only need to calculate thresholds once
-
-  initialized_ = true;
-
-  std::vector<double> dummy;
-
-  dummy.resize(maxNumberOfThickIndices_ + !isNose_,
-               0);  // +1 to accomodate for the Scintillators
-  thresholds_.resize(maxlayer_, dummy);
-  v_sigmaNoise_.resize(maxlayer_, dummy);
-
-  for (unsigned ilayer = 1; ilayer <= maxlayer_; ++ilayer) {
-    for (unsigned ithick = 0; ithick < maxNumberOfThickIndices_; ++ithick) {
-      float sigmaNoise = 0.001f * fcPerEle_ * nonAgedNoises_[ithick] * dEdXweights_[ilayer] /
-                         (fcPerMip_[ithick] * thicknessCorrection_[ithick]);
-      thresholds_[ilayer - 1][ithick] = sigmaNoise * ecut_;
-      v_sigmaNoise_[ilayer - 1][ithick] = sigmaNoise;
-      LogDebug("HGCalCLUEAlgo") << "ilayer: " << ilayer << " nonAgedNoises: " << nonAgedNoises_[ithick]
-                                << " fcPerEle: " << fcPerEle_ << " fcPerMip: " << fcPerMip_[ithick]
-                                << " noiseMip: " << fcPerEle_ * nonAgedNoises_[ithick] / fcPerMip_[ithick]
-                                << " sigmaNoise: " << sigmaNoise << "\n";
-    }
-
-    if (!isNose_) {
-      float scintillators_sigmaNoise = 0.001f * noiseMip_ * dEdXweights_[ilayer] / sciThicknessCorrection_;
-      thresholds_[ilayer - 1][maxNumberOfThickIndices_] = ecut_ * scintillators_sigmaNoise;
-      v_sigmaNoise_[ilayer - 1][maxNumberOfThickIndices_] = scintillators_sigmaNoise;
-      LogDebug("HGCalCLUEAlgo") << "ilayer: " << ilayer << " noiseMip: " << noiseMip_
-                                << " scintillators_sigmaNoise: " << scintillators_sigmaNoise << "\n";
-    }
-  }
-}
-
-// explicit template instantiation
-template class HGCalCLUEAlgoT<HGCalSiliconLayerTiles, HGCalSiliconStrategy>;
-template class HGCalCLUEAlgoT<HGCalScintillatorLayerTiles, HGCalScintillatorStrategy>;
-template class HGCalCLUEAlgoT<HFNoseLayerTiles, HGCalSiliconStrategy>;
+  // explicit template instantiation
+  template class HGCalCLUEAlgoT<HGCalSiliconLayerTiles, HGCalSiliconStrategy>;
+  template class HGCalCLUEAlgoT<HGCalScintillatorLayerTiles, HGCalScintillatorStrategy>;
+  template class HGCalCLUEAlgoT<HFNoseLayerTiles, HGCalSiliconStrategy>;
