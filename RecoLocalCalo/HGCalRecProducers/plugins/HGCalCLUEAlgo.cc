@@ -287,6 +287,21 @@ void HGCalCLUEAlgoT<T, STRATEGY>::makeClusters() {
         LogDebug("HGCalCLUEAlgo") << "ilayer: " << ilayer << " noiseMip: " << noiseMip_
                                   << " scintillators_sigmaNoise: " << scintillators_sigmaNoise << "\n";
       }
+
+      auto globalClusterIndex = cl + offsets[layerId];
+      auto &layer_clusters_view = clusters_and_associations.layer_clusters->view();
+      layer_clusters_view.position().x()[globalClusterIndex] = x;
+      layer_clusters_view.position().y()[globalClusterIndex] = y;
+      layer_clusters_view.position().z()[globalClusterIndex] = z;
+      layer_clusters_view.position().cells()[globalClusterIndex] = clusters.count(cl);
+      layer_clusters_view.energy().energy()[globalClusterIndex] = energy;
+      layer_clusters_view.energy().correctedEnergy()[globalClusterIndex] = -1.f;
+      layer_clusters_view.energy().correctedEnergyUncertainty()[globalClusterIndex] = -1.f;
+      layer_clusters_view.indexes().caloID()[globalClusterIndex] = reco::CaloID::DET_HGCAL_ENDCAP;
+      layer_clusters_view.indexes().algoID()[globalClusterIndex] = algoId_;
+      // TODO: do we really care about the seed?
+      // layer_clusters.view().indexes().seedID()[globalClusterIndex] = seedDetId;
+      layer_clusters_view.indexes().flags()[globalClusterIndex] = 0;
     }
   }
 
