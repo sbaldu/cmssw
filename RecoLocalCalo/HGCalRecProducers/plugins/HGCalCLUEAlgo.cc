@@ -132,6 +132,20 @@ void HGCalCLUEAlgoT<T, STRATEGY>::makeClusters() {
     hgcalUtils::DumpLegacySoA dumperLegacySoA;
     dumperLegacySoA.dumpInfos(cells_, moduleType_);
 #endif
+}
+
+template <typename T, typename STRATEGY>
+std::vector<reco::BasicCluster> HGCalCLUEAlgoT<T, STRATEGY>::getClustersLegacy(bool) {
+  return std::vector<reco::BasicCluster>(1);
+}
+
+template <typename T, typename STRATEGY>
+ticl::LayerClustersAndAssociations HGCalCLUEAlgoT<T, STRATEGY>::getClusters(bool) {
+  std::vector<int> offsets(numberOfClustersPerLayer_.size(), 0);
+  int maxClustersOnLayer = numberOfClustersPerLayer_[0];
+  for (unsigned layerId = 1; layerId < offsets.size(); ++layerId) {
+    offsets[layerId] = offsets[layerId - 1] + numberOfClustersPerLayer_[layerId - 1];
+    maxClustersOnLayer = std::max(maxClustersOnLayer, numberOfClustersPerLayer_[layerId]);
   }
 
   template <typename T, typename STRATEGY>

@@ -78,6 +78,7 @@ public:
   void makeClusters() override;
 
   // this is the method to get the cluster collection out
+  std::vector<reco::BasicCluster> getClustersLegacy(bool) override;
   ticl::LayerClustersAndAssociations getClusters(bool) override;
 
   void reset() override {
