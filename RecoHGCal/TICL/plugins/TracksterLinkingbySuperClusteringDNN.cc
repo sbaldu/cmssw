@@ -40,9 +40,10 @@ Date: 02/2026
 #include "FWCore/Utilities/interface/FileInPath.h"
 #include "PhysicsTools/ONNXRuntime/interface/ONNXRuntime.h"
 
-#include "DataFormats/HGCalReco/interface/TICLLayerTile.h"
 #include "DataFormats/HGCalReco/interface/Trackster.h"
 #include "RecoHGCal/TICL/plugins/TracksterLinkingbySuperClusteringDNN.h"
+
+#include <cstdint>
 
 using namespace ticl;
 
@@ -120,16 +121,71 @@ void TracksterLinkingbySuperClusteringDNN::linkTracksters(
     std::vector<std::vector<unsigned int>>& linkedTracksterIdToInputTracksterId) {
   auto const& inputTracksters = input.tracksters;
   const auto tracksterCount = static_cast<unsigned int>(inputTracksters.size());
-  if (tracksterCount == 0) {
+  if (tracksterCount == 0)
     return;
-  }
 
+  std::cout << "inside clustering with DNN\n";
+
+  using Acc = alpaka_serial_sync::Acc1D;
+
+  // For now we use all input tracksters for superclustering. At some point there might be a filter here for EM tracksters (electromagnetic identification with DNN ?)
+  // auto const& inputTracksters = input.tracksters;
+  // const unsigned int tracksterCount = inputTracksters.size();
+
+  // /* Sorting tracksters by decreasing order of pT (out-of-place sort).
+  // inputTracksters[trackstersIndicesPt[0]], ..., inputTracksters[trackstersIndicesPt[N]] makes a list of tracksters sorted by decreasing pT
+  // Indices into this pT sorted collection will have the suffix _pt. Thus inputTracksters[index] and inputTracksters[trackstersIndicesPt[index_pt]] are correct
+  // */
+  // std::vector<unsigned int> trackstersIndicesPt(inputTracksters.size());
+  // std::iota(trackstersIndicesPt.begin(), trackstersIndicesPt.end(), 0);
+  // std::stable_sort(
+  //     trackstersIndicesPt.begin(), trackstersIndicesPt.end(), [&inputTracksters](unsigned int i1, unsigned int i2) {
+  //       return inputTracksters[i1].raw_pt() > inputTracksters[i2].raw_pt();
+  //     });
+
+  // /* Evaluate in minibatches since running with trackster count = 3000 leads to a short-lived ~15GB memory allocation
+  // Also we do not know in advance how many superclustering candidate pairs there are going to be
+  // The batch size needs to be rounded to featureCount
+  // */
+  // const unsigned int miniBatchSize =
+  //     static_cast<unsigned int>(inferenceBatchSize_) / dnnInputs_->featureCount() * dnnInputs_->featureCount();
+
+  // std::vector<std::vector<float>>
+  //     inputTensorBatches;  // DNN input features tensors, in minibatches. Outer array : minibatches, inner array : 2D (flattened) array of features (indexed by batchIndex, featureId)
+  // // How far along in the latest tensor of inputTensorBatches are we. Set to miniBatchSize to trigger the creation of the tensor batch on first run
+  // unsigned int candidateIndexInCurrentBatch = miniBatchSize;
+  // // List of all (ts_seed_id; ts_cand_id) selected for DNN inference (same layout as inputTensorBatches)
+  // // Index is in global trackster collection (not pt ordered collection)
+  // std::vector<std::vector<std::pair<unsigned int, unsigned int>>> tracksterIndicesUsedInDNN;
+
+  // Use TracksterTiles to speed up search of tracksters in eta-phi window. One per endcap
   std::vector<unsigned int> trackstersIndicesPt(tracksterCount);
   std::iota(trackstersIndicesPt.begin(), trackstersIndicesPt.end(), 0u);
   std::stable_sort(
       trackstersIndicesPt.begin(), trackstersIndicesPt.end(), [&inputTracksters](unsigned int a, unsigned int b) {
         return inputTracksters[a].raw_pt() > inputTracksters[b].raw_pt();
       });
+
+  ticl::TilesCoordinates tiles_coords(inputTracksters.size());
+  for (auto i = 0u; i < inputTracksters.size(); ++i) {
+    Trackster const& ts = inputTracksters[trackstersIndicesPt[i]];
+    if (ts.barycenter().eta() > 0.) {
+      tiles_coords.etas_pos.push_back(ts.barycenter().eta());
+      tiles_coords.phis_pos.push_back(ts.barycenter().phi());
+      tiles_coords.ids_pos.push_back(i);
+    } else {
+      tiles_coords.etas_neg.push_back(ts.barycenter().eta());
+      tiles_coords.phis_neg.push_back(ts.barycenter().phi());
+      tiles_coords.ids_neg.push_back(i);
+    }
+  }
+  ticl::TICLTracksterLinkingTilesHost tracksterTilesBothEndcaps_pt(tiles_coords.size());
+
+  alpaka_serial_sync::Queue queue(cms::alpakatools::host());
+  tracksterTilesBothEndcaps_pt[0].template fill<Acc>(
+      queue, tiles_coords.etas_neg, tiles_coords.phis_neg, tiles_coords.ids_neg);
+  tracksterTilesBothEndcaps_pt[1].template fill<Acc>(
+      queue, tiles_coords.etas_pos, tiles_coords.phis_pos, tiles_coords.ids_pos);
 
   // -1 = unknown, 0 = false, 1 = true
   std::vector<int8_t> explVarRatioCache(tracksterCount, -1);
@@ -163,11 +219,12 @@ void TracksterLinkingbySuperClusteringDNN::linkTracksters(
 
   static const std::vector<std::string> kInputNames = {"input"};
 
-  std::array<TICLLayerTile, 2> tracksterTilesBothEndcaps_pt;
-  for (unsigned int i_pt = 0; i_pt < tracksterCount; ++i_pt) {
-    auto const& ts = inputTracksters[trackstersIndicesPt[i_pt]];
-    tracksterTilesBothEndcaps_pt[ts.barycenter().eta() > 0.f].fill(ts.barycenter().eta(), ts.barycenter().phi(), i_pt);
-  }
+  // std::array<TICLLayerTile, 2> tracksterTilesBothEndcaps_pt;
+  // for (unsigned int i_pt = 0; i_pt < tracksterCount; ++i_pt) {
+  //   auto const& ts = inputTracksters[trackstersIndicesPt[i_pt]];
+  //   tracksterTilesBothEndcaps_pt[ts.barycenter().eta() > 0.f].fill(
+  //       ts.barycenter().eta(), ts.barycenter().phi(), i_pt);
+  // }
 
   std::vector<bool> tracksterMask(tracksterCount, false);
   std::vector<bool> usedAsCandidate(tracksterCount, false);
@@ -262,11 +319,11 @@ void TracksterLinkingbySuperClusteringDNN::linkTracksters(
       continue;
     }
 
-    auto& tiles = tracksterTilesBothEndcaps_pt[ts_cand.barycenter().eta() > 0.f];
-    const auto search_box = tiles.searchBoxEtaPhi(ts_cand.barycenter().Eta() - deltaEtaWindow_,
-                                                  ts_cand.barycenter().Eta() + deltaEtaWindow_,
-                                                  ts_cand.barycenter().Phi() - deltaPhiWindow_,
-                                                  ts_cand.barycenter().Phi() + deltaPhiWindow_);
+    auto tiles = tracksterTilesBothEndcaps_pt[ts_cand.barycenter().eta() > 0.f].view();
+    const auto search_box = tiles.searchBox(ts_cand.barycenter().Eta() - deltaEtaWindow_,
+                                            ts_cand.barycenter().Eta() + deltaEtaWindow_,
+                                            ts_cand.barycenter().Phi() - deltaPhiWindow_,
+                                            ts_cand.barycenter().Phi() + deltaPhiWindow_);
 
     for (int eta_i = search_box[0]; eta_i <= search_box[1]; ++eta_i) {
       for (int phi_i = search_box[2]; phi_i <= search_box[3]; ++phi_i) {

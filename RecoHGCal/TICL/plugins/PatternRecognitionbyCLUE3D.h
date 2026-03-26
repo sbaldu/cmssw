@@ -139,7 +139,7 @@ namespace ticl {
     const bool computeLocalTime_;
     const bool usePCACleaning_;
 
-    static constexpr bool isBarrel_ = std::is_same<TILES, TICLLayerTilesBarrel>::value;
+    static constexpr bool isBarrel_ = std::is_same<TILES, TICLLayerTilesBarrelHost>::value;
   };
 
 }  // namespace ticl

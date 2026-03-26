@@ -1,16 +1,16 @@
-#ifndef HLTrigger_HLTUpgradeNano_AssociationMapFlatTable_h
-#define HLTrigger_HLTUpgradeNano_AssociationMapFlatTable_h
+#ifndef HLTrigger_HLTUpgradeNano_TICLAssociationMapFlatTable_h
+#define HLTrigger_HLTUpgradeNano_TICLAssociationMapFlatTable_h
 
 #include <type_traits>
 
 #include "PhysicsTools/NanoAOD/interface/SimpleFlatTableProducer.h"
 #include "SimDataFormats/Associations/interface/TICLAssociationMap.h"
 
-// Concept to check if a type is a valid AssociationMap of AssociationElement, both oneToOne and oneToMany.
+// Concept to check if a type is a valid TICLAssociationMap of AssociationElement, both oneToOne and oneToMany.
 // For oneToOne pass as Container the type std::vector<T::AssociationElementType>
 // For oneToMany pass as Container the type std::vector<std::vector<T::AssociationElementType>>
 template <typename T, typename Container>
-concept IsValidAssociationMap = requires {
+concept IsValidTICLAssociationMap = requires {
   typename T::Traits;
   typename T::AssociationElementType;
   typename T::V;
@@ -20,7 +20,7 @@ concept IsValidAssociationMap = requires {
 };
 
 template <typename T>
-  requires IsValidAssociationMap<T, std::vector<typename T::AssociationElementType>>
+  requires IsValidTICLAssociationMap<T, std::vector<typename T::AssociationElementType>>
 class AssociationOneToOneFlatTableProducer : public SimpleFlatTableProducerBase<typename T::AssociationElementType, T> {
 public:
   using TProd = T::AssociationElementType;
@@ -61,7 +61,7 @@ public:
 };
 
 template <typename T>
-  requires IsValidAssociationMap<T, std::vector<std::vector<typename T::AssociationElementType>>>
+  requires IsValidTICLAssociationMap<T, std::vector<std::vector<typename T::AssociationElementType>>>
 class AssociationOneToManyFlatTableProducer : public SimpleFlatTableProducerBase<T, T> {
 public:
   using TProd = T::AssociationElementType;

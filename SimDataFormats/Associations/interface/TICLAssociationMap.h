@@ -1,5 +1,5 @@
-#ifndef SimDataFormats_Associations_TICLAssociationMap_h
-#define SimDataFormats_Associations_TICLAssociationMap_h
+#ifndef SimDataFormats_Associations_TICLTICLAssociationMap_h
+#define SimDataFormats_Associations_TICLTICLAssociationMap_h
 
 #include <vector>
 #include <utility>
