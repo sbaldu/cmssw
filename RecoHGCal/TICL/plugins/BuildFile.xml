@@ -1,3 +1,5 @@
+<use name="alpaka"/>
+<use name="xtd"/>
 <use name="CommonTools/Utils"/>
 <use name="CondFormats/HGCalObjects"/>
 <use name="DataFormats/CaloRecHit"/>
@@ -36,8 +38,10 @@
 <use name="TrackingTools/TrajectoryState"/>
 <use name="fastjet"/>
 <use name="RecoEgamma/EgammaElectronAlgos"/> 
+<flags ALPAKA_BACKENDS="serial"/>
 <library file="*.cc" name="RecoHGCalTICLPlugins">
   <flags EDM_PLUGIN="1"/>
+  <flags ALPAKA_BACKENDS="serial"/>
 </library>
 
 <library file="alpaka/*.cc" name="RecoHGCalTICLPluginsPortable">
