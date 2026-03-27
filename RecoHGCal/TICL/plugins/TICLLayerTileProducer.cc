@@ -9,7 +9,7 @@
 #include "FWCore/MessageLogger/interface/MessageLogger.h"
 #include "FWCore/Utilities/interface/ESGetToken.h"
 
-#include "DataFormats/CaloRecHit/interface/CaloCluster.h"
+#include "DataFormats/CaloRecHit/interface/CaloClusterHostCollection.h"
 #include "DataFormats/HGCalReco/interface/TICLLayerTile.h"
 
 #include "RecoLocalCalo/HGCalRecAlgos/interface/RecHitTools.h"
@@ -23,8 +23,8 @@ public:
   static void fillDescriptions(edm::ConfigurationDescriptions &descriptions);
 
 private:
-  edm::EDGetTokenT<std::vector<reco::CaloCluster>> clusters_token_;
-  edm::EDGetTokenT<std::vector<reco::CaloCluster>> clusters_HFNose_token_;
+  edm::EDGetTokenT<reco::CaloClusterHostCollection> clusters_token_;
+  edm::EDGetTokenT<reco::CaloClusterHostCollection> clusters_HFNose_token_;
   edm::ESGetToken<CaloGeometry, CaloGeometryRecord> geometry_token_;
   hgcal::RecHitTools rhtools_;
   std::string detector_;
@@ -41,13 +41,14 @@ TICLLayerTileProducer::TICLLayerTileProducer(const edm::ParameterSet &ps)
 
   if (doNose_) {
     clusters_HFNose_token_ =
-        consumes<std::vector<reco::CaloCluster>>(ps.getParameter<edm::InputTag>("layer_HFNose_clusters"));
+        consumes<reco::CaloClusterHostCollection>(ps.getParameter<edm::InputTag>("layer_HFNose_clusters"));
     produces<TICLLayerTilesHFNose>();
   } else {
     if (doBarrel_) {
       produces<TICLLayerTilesBarrel>("ticlLayerTilesBarrel");
     }
     clusters_token_ = consumes<std::vector<reco::CaloCluster>>(ps.getParameter<edm::InputTag>("layer_clusters"));
+    clusters_token_ = consumes<reco::CaloClusterHostCollection>(ps.getParameter<edm::InputTag>("layer_clusters"));
     produces<TICLLayerTiles>();
   }
 }
@@ -69,7 +70,7 @@ void TICLLayerTileProducer::produce(edm::Event &evt, const edm::EventSetup &) {
     result = std::make_unique<TICLLayerTiles>();
   }
 
-  edm::Handle<std::vector<reco::CaloCluster>> cluster_h;
+  edm::Handle<reco::CaloClusterHostCollection> cluster_h;
   if (doNose_)
     evt.getByToken(clusters_HFNose_token_, cluster_h);
   else
@@ -77,32 +78,35 @@ void TICLLayerTileProducer::produce(edm::Event &evt, const edm::EventSetup &) {
 
   const auto &layerClusters = *cluster_h;
   int lcId = 0;
-  for (auto const &lc : layerClusters) {
-    const auto firstHitDetId = lc.hitsAndFractions()[0].first;
-    int layer = rhtools_.getLayerWithOffset(firstHitDetId);
-    bool isBarrelLC = rhtools_.isBarrel(firstHitDetId);
-    if (!isBarrelLC) {
-      layer += rhtools_.lastLayer(doNose_) * ((rhtools_.zside(firstHitDetId) + 1) >> 1) - 1;
-    }
+  for (auto lc_idx = 0; lc_idx < layerClusters.view().position().metadata().size(); ++lc_idx) {
+    auto layer = layerClusters.view().position()[lc_idx].layer();
     assert(layer >= 0);
 
-    if (doNose_) {
-      resultHFNose->fill(layer, lc.eta(), lc.phi(), lcId);
-      LogDebug("TICLLayerTileProducer") << "Adding layerClusterId: " << lcId << " into bin [eta,phi]: [ "
-                                        << (*resultHFNose)[layer].etaBin(lc.eta()) << ", "
-                                        << (*resultHFNose)[layer].phiBin(lc.phi()) << "] for layer: " << layer;
-    } else if (doBarrel_ && isBarrelLC) {
-      resultBarrel->fill(layer, lc.eta(), lc.phi(), lcId);
-      LogDebug("TICLLayerTileProducer") << "Adding layerClusterId: " << lcId << " into bin [eta,phi]: [ "
-                                        << (*resultBarrel)[layer].etaBin(lc.eta()) << ", "
-                                        << (*resultBarrel)[layer].phiBin(lc.phi()) << "] for layer: " << layer;
-    } else if (!isBarrelLC) {
-      result->fill(layer, lc.eta(), lc.phi(), lcId);
-      LogDebug("TICLLayerTileProducer") << "Adding layerClusterId: " << lcId << " into bin [eta,phi]: [ "
-                                        << (*result)[layer].etaBin(lc.eta()) << ", "
-                                        << (*result)[layer].phiBin(lc.phi()) << "] for layer: " << layer;
+    const auto seed_detid = layerClusters.view().indexes()[lc_idx].seedID();
+
+    const auto isBarrelLC = rhtools_.isBarrel(seed_detid);
+    if (!isBarrelLC) {
+      layer += rhtools_.lastLayer(doNose_) * ((rhtools_.zside(seed_detid) + 1) >> 1) - 1;
     }
-    lcId++;
+
+    const auto eta = layerClusters.view().eta(lc_idx);
+    const auto phi = layerClusters.view().phi(lc_idx);
+    if (doNose_) {
+      resultHFNose->fill(layer, eta, phi, lc_idx);
+      LogDebug("TICLLayerTileProducer") << "Adding layerClusterId: " << lcId << " into bin [eta,phi]: [ "
+                                        << (*resultHFNose)[layer].etaBin(eta) << ", "
+                                        << (*resultHFNose)[layer].phiBin(phi) << "] for layer: " << layer;
+    } else if (doBarrel_ && isBarrelLC) {
+      resultBarrel->fill(layer, eta, phi, lc_idx);
+      LogDebug("TICLLayerTileProducer") << "Adding layerClusterId: " << lcId << " into bin [eta,phi]: [ "
+                                        << (*resultBarrel)[layer].etaBin(eta) << ", "
+                                        << (*resultBarrel)[layer].phiBin(phi) << "] for layer: " << layer;
+    } else {
+      result->fill(layer, eta, phi, lc_idx);
+      LogDebug("TICLLayerTileProducer") << "Adding layerClusterId: " << lcId << " into bin [eta,phi]: [ "
+                                        << (*result)[layer].etaBin(eta) << ", "
+                                        << (*result)[layer].phiBin(phi) << "] for layer: " << layer;
+    }
   }
 
   if (doNose_)
