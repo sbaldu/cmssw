@@ -133,7 +133,6 @@ std::array<ticl::Vector, 3> TracksterLinkingbySkeletons::findSkeletonNodes(
   // sort vertices by layerId
   std::array<ticl::Vector, 3> skeleton;
   if (trackster.vertices().size() < 3) {
-    const auto &v = layerClusters[];
     const Vector intersection(clusters.position()[trackster.vertices()[0]].x(),
                               clusters.position()[trackster.vertices()[0]].y(),
                               clusters.position()[trackster.vertices()[0]].z());
@@ -149,7 +148,7 @@ std::array<ticl::Vector, 3> TracksterLinkingbySkeletons::findSkeletonNodes(
   // now loop over sortedVertices and find the layerId that contains the lower_percentage of the energy
   // and the layerId that contains the upper_percentage of the energy
   float cumulativeEnergyFraction = 0.f;
-  int innerLayerId = rhtools.getLayerWithOffset(clusters.indexes()[sortedVertices[0].seedID());
+  int innerLayerId = rhtools.getLayerWithOffset(clusters.indexes()[sortedVertices[0]].seedID());
   float innerLayerZ = clusters.position()[sortedVertices[0]].z();
   int outerLayerId = rhtools.getLayerWithOffset(clusters.indexes()[sortedVertices.back()].seedID());
   float outerLayerZ = clusters.position()[sortedVertices.back()].z();

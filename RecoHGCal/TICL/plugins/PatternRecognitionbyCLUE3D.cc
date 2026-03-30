@@ -361,7 +361,6 @@ void PatternRecognitionbyCLUE3D<TILES>::makeTracksters(
   }
   ticl::assignPCAtoTracksters(result,
                               input.layerClusters,
-                              input.layerClustersTime,
                               limit_em,
                               *rhtools,
                               computeLocalTime_,
