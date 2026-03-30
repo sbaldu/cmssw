@@ -37,20 +37,21 @@ namespace ticl {
     enabled_ = ((doPID_ != 0 && onnxPIDSession_ != nullptr) || (doRegression_ != 0 && onnxEnergySession_ != nullptr));
   }
 
-  void TracksterInferenceByPFN::runInference(const std::vector<reco::CaloCluster>& layerClusters,
-                                             std::vector<Trackster>& tracksters,
-                                             const hgcal::RecHitTools& rhtools) const {
+  void TracksterInferenceByPFN::runInference(const reco::CaloClusterHostCollection& layerClusters,
+                                          std::vector<Trackster>& tracksters,
+                                          const hgcal::RecHitTools& rhtools) const {
     if (!enabled_ || tracksters.empty()) {
       return;
     }
 
     std::vector<int> indices;
     indices.reserve(tracksters.size());
+    auto clusters = layerClusters.view();
 
     for (int i = 0; i < static_cast<int>(tracksters.size()); ++i) {
       bool anyBarrel = false;
       for (const unsigned int& v : tracksters[i].vertices()) {
-        if (rhtools.isBarrel(layerClusters[v].seed())) {
+        if (rhtools.isBarrel(clusters.indexes()[v].seedID())) {
           anyBarrel = true;
           break;
         }
@@ -69,6 +70,7 @@ namespace ticl {
       return;
     }
 
+<<<<<<< HEAD
     const int mb = std::max(1, miniBatchSize_);
 
     // Scratch buffers are local to this event.
@@ -116,17 +118,16 @@ namespace ticl {
         clusterIndices.resize(vtxCount);
         std::iota(clusterIndices.begin(), clusterIndices.end(), 0);
 
-        std::sort(clusterIndices.begin(), clusterIndices.end(), [&layerClusters, &ts](int a, int b) {
-          return layerClusters[ts.vertices(a)].energy() > layerClusters[ts.vertices(b)].energy();
+        std::sort(clusterIndices.begin(), clusterIndices.end(), [&clusters, &ts](int a, int b) {
+          return clusters.energy()[ts.vertices(a)].energy() > clusters.energy()[ts.vertices(b)].energy();
         });
 
         std::fill(seenClusters.begin(), seenClusters.end(), 0);
 
         for (int k : clusterIndices) {
           const unsigned int v = ts.vertices(k);
-          auto const& cl = layerClusters[v];
 
-          const int j = rhtools.getLayerWithOffset(cl.hitsAndFractions()[0].first) - 1;
+          const auto j = rhtools.getLayerWithOffset(clusters.indexes()[k].seedID()) - 1;
           if (j < 0 || j >= eidNLayers_) {
             continue;
           }
@@ -138,13 +139,13 @@ namespace ticl {
               (static_cast<size_t>(bi) * eidNLayers_ + static_cast<size_t>(j)) * (eidNClusters_ * eidNFeatures_) +
               static_cast<size_t>(seenClusters[j]) * eidNFeatures_;
 
-          lcTensor[base_lc + 0] = static_cast<float>(cl.energy() / static_cast<float>(ts.vertex_multiplicity(k)));
-          lcTensor[base_lc + 1] = static_cast<float>(std::abs(cl.eta()));
-          lcTensor[base_lc + 2] = static_cast<float>(cl.phi());
-          lcTensor[base_lc + 3] = static_cast<float>(cl.x());
-          lcTensor[base_lc + 4] = static_cast<float>(cl.y());
-          lcTensor[base_lc + 5] = static_cast<float>(std::abs(cl.z()));
-          lcTensor[base_lc + 6] = static_cast<float>(cl.hitsAndFractions().size());
+          lcTensor[base_lc + 0] = static_cast<float>(clusters.energy()[k].energy() / static_cast<float>(ts.vertex_multiplicity(k)));
+          lcTensor[base_lc + 1] = static_cast<float>(std::abs(clusters.eta(k)));
+          lcTensor[base_lc + 2] = static_cast<float>(clusters.phi(k));
+          lcTensor[base_lc + 3] = static_cast<float>(clusters.position()[k].x());
+          lcTensor[base_lc + 4] = static_cast<float>(clusters.position()[k].y());
+          lcTensor[base_lc + 5] = static_cast<float>(std::abs(clusters.position()[k].z()));
+          lcTensor[base_lc + 6] = static_cast<float>(clusters.position()[k].cells());
 
           ++seenClusters[j];
         }

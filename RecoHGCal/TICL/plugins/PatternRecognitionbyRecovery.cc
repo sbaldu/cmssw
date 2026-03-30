@@ -43,31 +43,44 @@ void PatternRecognitionbyRecovery<TILES>::makeTracksters(
   result.reserve(input.layerClusters.size() / 16);  // Heuristic
 
   // Iterate over all layer clusters
-  for (unsigned int i = 0; i < input.layerClusters.size(); ++i) {
+  auto clusters = input.layerClusters.view();
+  for (auto i = 0; i < input.layerClusters.size()[0]; ++i) {
     if (input.mask[i] == 0.f) {
       continue;  // Skip masked clusters
     }
     // Create a new trackster for each layer cluster
-    result.emplace_back();
-    auto &trackster = result.back();
-    auto &v = trackster.vertices();
-    v.clear();
-    v.reserve(1);
-    v.push_back(i);
+    // TODO: needed?
+    // result.emplace_back();
+    // auto &trackster = result.back();
+    // auto &v = trackster.vertices();
+    // v.clear();
+    // v.reserve(1);
+    // v.push_back(i);
 
-    auto &mult = trackster.vertex_multiplicity();
-    mult.clear();
-    mult.reserve(1);
-    mult.push_back(1);
-    const auto &lc = input.layerClusters[i];
-    const auto timePair = input.layerClustersTime.get(i);
-    trackster.setTimeAndError(timePair.first, timePair.second);
-    trackster.setRawEnergy(lc.energy());
-    trackster.setBarycenter({float(lc.x()), float(lc.y()), float(lc.z())});
+    // auto &mult = trackster.vertex_multiplicity();
+    // mult.clear();
+    // mult.reserve(1);
+    // mult.push_back(1);
+    // const auto &lc = input.layerClusters[i];
+    // const auto timePair = input.layerClustersTime.get(i);
+    // trackster.setTimeAndError(timePair.first, timePair.second);
+    // trackster.setRawEnergy(lc.energy());
+    // trackster.setBarycenter({float(lc.x()), float(lc.y()), float(lc.z())});
+    // trackster.calculateRawPt();
+    // const float z = lc.z();
+    // if (z <= z_limit_em_ && z >= -z_limit_em_) {
+    //   trackster.setRawEmEnergy(lc.energy());
+    Trackster trackster;
+    trackster.vertices().push_back(i);
+    trackster.vertex_multiplicity().push_back(1);
+    trackster.setTimeAndError(input.layerClustersTime.get(i).first, input.layerClustersTime.get(i).second);
+    trackster.setRawEnergy(clusters.energy()[i].energy());
+    trackster.setBarycenter(
+        {float(clusters.position()[i].x()), float(clusters.position()[i].y()), float(clusters.position()[i].z())});
     trackster.calculateRawPt();
-    const float z = lc.z();
-    if (z <= z_limit_em_ && z >= -z_limit_em_) {
-      trackster.setRawEmEnergy(lc.energy());
+
+    if (std::abs(clusters.position()[i].z()) <= z_limit_em) {
+      trackster.setRawEmEnergy(clusters.energy()[i].energy());
       trackster.calculateRawEmPt();
     }
   }
