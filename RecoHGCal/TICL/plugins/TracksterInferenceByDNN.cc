@@ -37,7 +37,7 @@ namespace ticl {
     enabled_ = ((doPID_ != 0 && onnxPIDSession_ != nullptr) || (doRegression_ != 0 && onnxEnergySession_ != nullptr));
   }
 
-  void TracksterInferenceByDNN::runInference(const std::vector<reco::CaloCluster>& layerClusters,
+  void TracksterInferenceByDNN::runInference(const reco::CaloClusterHostCollection& layerClusters,
                                              std::vector<Trackster>& tracksters,
                                              const hgcal::RecHitTools& rhtools) const {
     if (!enabled_ || tracksters.empty()) {
@@ -47,14 +47,15 @@ namespace ticl {
     std::vector<int> indices;
     indices.reserve(tracksters.size());
 
+    auto clusters = layerClusters.view();
     for (int i = 0; i < static_cast<int>(tracksters.size()); ++i) {
       float sumClusterEnergy = 0.f;
 
       for (const unsigned int& v : tracksters[i].vertices()) {
-        if (rhtools.isBarrel(layerClusters[v].seed())) {
+        if (rhtools.isBarrel(clusters.indexes()[vertex].seedID())) {
           continue;
         }
-        sumClusterEnergy += static_cast<float>(layerClusters[v].energy());
+        sumClusterEnergy += static_cast<float>(clusters.energy()[vertex].energy());
         if (sumClusterEnergy >= eidMinClusterEnergy_) {
           tracksters[i].setRegressedEnergy(0.f);
           tracksters[i].zeroProbabilities();
@@ -132,12 +133,19 @@ namespace ticl {
         }
       }
 
+<<<<<<< HEAD
       if (doRegression_ != 0 && onnxEnergySession_ != nullptr) {
         ortScratch.outputs.clear();
+=======
+      std::sort(clusterIndices.begin(), clusterIndices.end(), [&clusters, &trackster](const int& a, const int& b) {
+        return clusters.energy()[trackster.vertices(a)].energy() > clusters.energy()[trackster.vertices(b)].energy();
+      });
+>>>>>>> 44e43591307 (Update legacy RecoHGCal plugin to use cluster SoA)
 
         onnxEnergySession_->runInto(
             inputNames_, ortScratch.inputs, ortScratch.input_shapes, output_en_, ortScratch.outputs, {}, n);
 
+<<<<<<< HEAD
         if (!ortScratch.outputs.empty() && !output_en_.empty()) {
           auto const& energy = ortScratch.outputs[0];
           for (int bi = 0; bi < n; ++bi) {
@@ -159,6 +167,18 @@ namespace ticl {
             ts.setProbabilities(probs);
             probs += ts.id_probabilities().size();
           }
+=======
+      // Fill input data with cluster information
+      for (const int& k : clusterIndices) {
+        int j = rhtools.getLayerWithOffset(clusters.indexes()[k].seedID()) - 1;
+        if (j < eidNLayers_ && seenClusters[j] < eidNClusters_) {
+          auto index = (i * eidNLayers_ + j) * eidNFeatures_ * eidNClusters_ + seenClusters[j] * eidNFeatures_;
+          input_Data_[0][index] =
+              static_cast<float>(clusters.energy()[k].energy() / static_cast<float>(trackster.vertex_multiplicity(k)));
+          input_Data_[0][index + 1] = static_cast<float>(std::abs(clusters.eta(k)));
+          input_Data_[0][index + 2] = static_cast<float>(clusters.phi(k));
+          seenClusters[j]++;
+>>>>>>> 44e43591307 (Update legacy RecoHGCal plugin to use cluster SoA)
         }
       }
     }

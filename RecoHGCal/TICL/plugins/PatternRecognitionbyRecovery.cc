@@ -43,7 +43,8 @@ void PatternRecognitionbyRecovery<TILES>::makeTracksters(
   result.reserve(input.layerClusters.size() / 16);  // Heuristic
 
   // Iterate over all layer clusters
-  for (unsigned int i = 0; i < input.layerClusters.size(); ++i) {
+  auto clusters = input.layerClusters.view();
+  for (auto i = 0; i < input.layerClusters.size()[0]; ++i) {
     if (input.mask[i] == 0.f) {
       continue;  // Skip masked clusters
     }
@@ -62,12 +63,12 @@ void PatternRecognitionbyRecovery<TILES>::makeTracksters(
     const auto &lc = input.layerClusters[i];
     const auto timePair = input.layerClustersTime.get(i);
     trackster.setTimeAndError(timePair.first, timePair.second);
-    trackster.setRawEnergy(lc.energy());
-    trackster.setBarycenter({float(lc.x()), float(lc.y()), float(lc.z())});
+    trackster.setRawEnergy(clusters.energy()[i].energy());
+        {float(clusters.position()[i].x()), float(clusters.position()[i].y()), float(clusters.position()[i].z())});
     trackster.calculateRawPt();
     const float z = lc.z();
     if (z <= z_limit_em_ && z >= -z_limit_em_) {
-      trackster.setRawEmEnergy(lc.energy());
+      trackster.setRawEmEnergy(clusters.energy()[i].energy());
       trackster.calculateRawEmPt();
     }
   }

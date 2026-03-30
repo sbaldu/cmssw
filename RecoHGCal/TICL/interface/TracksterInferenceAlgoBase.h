@@ -7,6 +7,7 @@
 #include "DataFormats/HGCalReco/interface/Trackster.h"
 #include "FWCore/ParameterSet/interface/ParameterSet.h"
 #include "FWCore/ParameterSet/interface/ParameterSetDescription.h"
+#include "DataFormats/CaloRecHit/interface/CaloClusterHostCollection.h"
 #include "PhysicsTools/ONNXRuntime/interface/ONNXRuntime.h"
 #include "RecoHGCal/TICL/interface/TICLONNXGlobalCache.h"
 #include "RecoLocalCalo/HGCalRecAlgos/interface/RecHitTools.h"
@@ -35,7 +36,7 @@ namespace ticl {
     virtual ~TracksterInferenceAlgoBase() = default;
 
     // Build minibatches internally.
-    virtual void runInference(const std::vector<reco::CaloCluster>& layerClusters,
+    virtual void runInference(const reco::CaloClusterHostCollection& layerClusters,
                               std::vector<Trackster>& tracksters,
                               const hgcal::RecHitTools& rhtools) const = 0;
 
