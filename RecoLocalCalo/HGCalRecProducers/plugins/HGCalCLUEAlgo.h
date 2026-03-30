@@ -194,6 +194,7 @@ private:
     std::vector<float> sigmaNoise;
     std::vector<int> cellType;
     std::vector<int> clusterIndex;
+    std::vector<int> seeds;
 
     float layerDim3 = std::numeric_limits<float>::infinity();
 
