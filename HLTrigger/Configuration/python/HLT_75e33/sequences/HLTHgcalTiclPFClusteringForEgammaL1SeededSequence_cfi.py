@@ -15,13 +15,13 @@ from ..modules.hltParticleFlowClusterHGCalFromTICLL1Seeded_cfi import *
 from ..modules.hltParticleFlowRecHitHGCL1Seeded_cfi import *
 from ..modules.hltTiclLayerTileProducerL1Seeded_cfi import *
 from ..modules.hltTiclSeedingL1_cfi import *
+from ..modules.hltHgcalSoARecHitsProducer_cfi import *
+from ..modules.hltHgcalSoARecHitsLayerClustersProducer_cfi import *
+from ..modules.hltHgcalSoALayerClustersProducer_cfi import *
+from ..modules.hltHgcalLayerClustersFromSoAProducer_cfi import *
 from ..modules.hltTiclTrackstersCLUE3DHighL1Seeded_cfi import *
 from ..modules.hltTiclTracksterLinksL1Seeded_cfi import *
 from ..modules.hltBarrelLayerClustersEBL1Seeded_cfi import *
-from ..modules.hltTiclEGammaSuperClusterProducerL1Seeded_cfi import hltTiclEGammaSuperClusterProducerL1Seeded
-from ..modules.hltTiclTracksterLinksSuperclusteringMustacheL1Seeded_cfi import hltTiclTracksterLinksSuperclusteringMustacheL1Seeded
-from ..modules.hltTiclTracksterLinksSuperclusteringDNNL1Seeded_cfi import hltTiclTracksterLinksSuperclusteringDNNL1Seeded
-
 
 _HgcalLocalRecoL1SeededSequence = cms.Sequence(hltHgcalDigis+
                                                hltL1TEGammaHGCFilteredCollectionProducer+
@@ -48,11 +48,6 @@ _SuperclusteringL1SeededSequence = cms.Sequence(hltTiclTracksterLinksSupercluste
 
 # The baseline sequence
 HLTHgcalTiclPFClusteringForEgammaL1SeededSequence = cms.Sequence(_HgcalLocalRecoL1SeededSequence + _HgcalTICLPatternRecognitionL1SeededSequence + _SuperclusteringL1SeededSequence)
-
-
-
-
-
 
 # Mustache
 from Configuration.ProcessModifiers.ticl_superclustering_mustache_ticl_cff import ticl_superclustering_mustache_ticl

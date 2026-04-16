@@ -13,4 +13,12 @@ hltHgcalSoARecHitsLayerClustersProducer = cms.EDProducer("HGCalSoARecHitsLayerCl
 
 hltHgcalSoARecHitsLayerClustersProducerSerialSync = makeSerialClone(hltHgcalSoARecHitsLayerClustersProducer,
                                                                     hgcalRecHitsSoA = "hltHgcalSoARecHitsProducerSerialSync"
+hltHgcalSoARecHitsLayerClustersProducerL1Seeded = cms.EDProducer("HGCalSoARecHitsLayerClustersProducer@alpaka",
+    alpaka = cms.untracked.PSet(
+        backend = cms.untracked.string('')
+    ),
+    hgcalRecHitsSoA = cms.InputTag("hltHgcalSoARecHitsProducerL1Seeded"),
+    deltac = cms.double(1.3),
+    kappa = cms.double(9),
+    outlierDeltaFactor = cms.double(2.0)
 )
