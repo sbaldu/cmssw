@@ -16,7 +16,11 @@ namespace ticl::associator::detail {
                                   TKey* keys_counts,
                                   std::size_t size) const {
       for (auto i : alpaka::uniformElements(acc, size)) {
-        alpaka::atomicAdd(acc, &keys_counts[keys[i]], TKey{1});
+        const auto key = keys[i];
+        if (key >= 0) {
+          // printf("i = %d, key from kernel = %d\n", i, key);
+          alpaka::atomicAdd(acc, &keys_counts[keys[i]], TKey{1});
+        }
       }
     }
   };
@@ -30,8 +34,10 @@ namespace ticl::associator::detail {
                                   TKey* temp_offsets) const {
       for (auto i : alpaka::uniformElements(acc, values.size())) {
         const auto key = keys[i];
-        const auto offset = alpaka::atomicAdd(acc, &temp_offsets[key], TKey{1});
-        view.content().values()[offset] = values[i];
+        if (key >= 0) {
+          const auto offset = alpaka::atomicAdd(acc, &temp_offsets[key], TKey{1});
+          view.content().values()[offset] = values[i];
+        }
       }
     }
   };
@@ -45,7 +51,10 @@ namespace ticl::associator::detail {
     using namespace ::cms::alpakatools;
 
     const auto nkeys = map.metadata().size()[1];
-    const auto nvalues = map.metadata().size()[0];
+    std::cout << "nkeys from fill = " << nkeys << std::endl;
+    // const auto nvalues = map.metadata().size()[0];
+    const auto nvalues = values.size();
+    std::cout << "nvals from fill = " << nvalues << std::endl;
 
     const auto blocksize = 1024;
     const auto gridsize = divide_up_by(keys.size(), blocksize);

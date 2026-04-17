@@ -35,6 +35,7 @@
   <class name="reco::CaloClusterHostCollection"/>
   <class name="reco::CaloClusterHostCollection::Layout"/>
   <class name="reco::CaloClusterSoA"/>
+  <class name="reco::CaloClusterSoA::View"/>
   <class name="reco::CaloClusterSoAPosition<128, false>"/>
   <class name="reco::CaloClusterSoAEnergy<128, false>"/>
   <class name="reco::CaloClusterSoAIndexes<128, false>"/>
