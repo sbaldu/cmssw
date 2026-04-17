@@ -80,6 +80,13 @@ void TICLLayerTileProducer::produce(edm::Event &evt, const edm::EventSetup &) {
   int lcId = 0;
   for (auto lc_idx = 0; lc_idx < layerClusters.view().position().metadata().size(); ++lc_idx) {
     auto layer = layerClusters.view().position()[lc_idx].layer();
+    const auto x = layerClusters.view().position()[lc_idx].x();
+    const auto y = layerClusters.view().position()[lc_idx].y();
+    const auto z = layerClusters.view().position()[lc_idx].z();
+    const auto cells = layerClusters.view().position()[lc_idx].cells();
+    const auto energy = layerClusters.view().energy()[lc_idx].energy();
+    std::cout << "x = " << x << " y = " << y << " z = " << z << " cells = " << cells << " energy = " << energy << std::endl;
+    std::cout << "size = " << layerClusters.view().position().metadata().size() << ", layer = " << layer << std::endl;
     assert(layer >= 0);
 
     const auto seed_detid = layerClusters.view().indexes()[lc_idx].seedID();
