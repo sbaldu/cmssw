@@ -198,6 +198,7 @@ void HGCalLayerClusterProducer::produce(edm::Event& evt, const edm::EventSetup& 
     hitmap[it.detid().rawId()] = &(it);
   }
 
+  std::cout << "detector = " << detector_ << std::endl;
   algo_->makeClusters();
 
   auto clusters_and_associations = algo_->getClusters(false);
@@ -239,7 +240,17 @@ void HGCalLayerClusterProducer::produce(edm::Event& evt, const edm::EventSetup& 
   // filler.fill();
   // evt.put(std::move(timeCl), timeClname_);
 
-  evt.put(std::move(clusters));
+  if (clusters->size()[0] > 0)
+    std::cout << "x from producer = " << clusters->view().position()[0].x() << " and layer "
+              << clusters->view().position()[0].layer() << std::endl;
+  edm::OrphanHandle<reco::CaloClusterHostCollection> handle = evt.put(std::move(clusters));
+  std::cout << "x ptr = " << handle->view().position().x().data()
+            << ", layer ptr = " << handle->view().position().layer().data() << std::endl;
+  for (auto i = 0; i < handle->view().position().metadata().size(); ++i) {
+    std::cout << "i = " << i << " x = " << handle->view().position()[i].x()
+              << " layer id = " << handle->view().position()[i].layer()
+              << " cells = " << handle->view().position()[i].cells() << std::endl;
+  }
   // evt.put(std::move(hits_and_fractions));
 
   algo_->reset();
