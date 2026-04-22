@@ -141,6 +141,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
           outputs.position()[cluster_index].y() = input_rechits_soa[max_energy_index].dim2();
         }
         outputs.position()[cluster_index].z() = input_rechits_soa[max_energy_index].dim3();
+        outputs.position()[cluster_index].layer() = input_rechits_soa[max_energy_index].layer();
       }  // uniform_elements
     }    // operator()
   };
@@ -157,10 +158,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     alpaka::memset(queue, x, 0x0);
     auto y = cms::alpakatools::make_device_view<float>(queue, outputs.position().y());
     alpaka::memset(queue, y, 0x0);
-    auto energy = cms::alpakatools::make_device_view<float>(queue, outputs.energy().energy());
-    alpaka::memset(queue, energy, 0x0);
     auto cells = cms::alpakatools::make_device_view<int>(queue, outputs.position().cells());
     alpaka::memset(queue, cells, 0x0);
+    auto energy = cms::alpakatools::make_device_view<float>(queue, outputs.energy().energy());
+    alpaka::memset(queue, energy, 0x0);
     auto total_weight = cms::alpakatools::make_device_view<float>(queue, outputs_service.total_weight(), size);
     alpaka::memset(queue, total_weight, 0x0);
     auto total_weight_log = cms::alpakatools::make_device_view<float>(queue, outputs_service.total_weight_log(), size);
