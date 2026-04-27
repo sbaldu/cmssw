@@ -158,12 +158,8 @@ ticl::LayerClustersAndAssociations HGCalCLUEAlgoT<T, STRATEGY>::getClusters(bool
   auto actual_clusters = 0;
   for (unsigned int layerId = 0; layerId < 2 * maxlayer_ + 2; ++layerId) {
     auto queue = clue::get_queue(0u);
-    auto points = clue::PointsHost<2>(queue,
-                                      cells_[layerId].dim1.size(),
-                                      cells_[layerId].dim1,
-                                      cells_[layerId].dim2,
-                                      cells_[layerId].weight,
-                                      cells_[layerId].clusterIndex);
+    auto points = clue::make_clustered_points<2>(
+        queue, cells_[layerId].dim1, cells_[layerId].dim2, cells_[layerId].weight, cells_[layerId].clusterIndex);
     if (points.size() <= 0 || numberOfClustersPerLayer_[layerId] == 0)
       continue;
 
@@ -173,7 +169,6 @@ ticl::LayerClustersAndAssociations HGCalCLUEAlgoT<T, STRATEGY>::getClusters(bool
     };
     std::ranges::copy(points.clusterIndexes() | std::views::filter(clustered) | std::views::transform(cluster_offsets),
                       std::back_inserter(cluster_hit_associations));
-    std::cout << "size of associations = " << cluster_hit_associations.size() << std::endl;
 
     auto clusters = clue::get_clusters(points);
     // for (auto cl = 0u; cl < clusters.size(); ++cl) {
@@ -226,10 +221,10 @@ ticl::LayerClustersAndAssociations HGCalCLUEAlgoT<T, STRATEGY>::getClusters(bool
 
       auto globalClusterIndex = cl + offsets[layerId];
       auto layer_clusters_view = clusters_and_associations.layer_clusters->view();
-      layer_clusters_view.position().x()[globalClusterIndex] = static_cast<float>(layerId);
+      layer_clusters_view.position().x()[globalClusterIndex] = x;
       layer_clusters_view.position().y()[globalClusterIndex] = y;
       layer_clusters_view.position().z()[globalClusterIndex] = z;
-      layer_clusters_view.position().layer()[globalClusterIndex] = static_cast<int>(x);
+      layer_clusters_view.position().layer()[globalClusterIndex] = static_cast<int>(layerId);
       layer_clusters_view.position().cells()[globalClusterIndex] = static_cast<int>(clusters.count(cl));
       layer_clusters_view.energy().energy()[globalClusterIndex] = energy;
       layer_clusters_view.energy().correctedEnergy()[globalClusterIndex] = -1.f;
@@ -240,14 +235,6 @@ ticl::LayerClustersAndAssociations HGCalCLUEAlgoT<T, STRATEGY>::getClusters(bool
       layer_clusters_view.indexes().flags()[globalClusterIndex] = 0;
     }
   }
-  std::cout << "actual clusters = " << actual_clusters << std::endl;
-  std::cout << "nkeys = " << clusters_and_associations.hits_and_fractions->view().keys() << std::endl;
-  std::cout << "final size of associations = " << cluster_hit_associations.size() << std::endl;
-  // for (auto key : cluster_hit_associations) {
-  //   std::cout << "hit assoc = " << key << std::endl;
-  // }
-  std::cout << "size assoc = " << cluster_hit_associations.size() << "and vals = " << detid_and_fractions.size()
-            << std::endl;
 
   auto new_hits_and_fractions = std::make_unique<ticl::HitsAndFractionsHost>(
       cms::alpakatools::host(), cluster_hit_associations.size(), totalNumberOfClusters);
@@ -259,16 +246,6 @@ ticl::LayerClustersAndAssociations HGCalCLUEAlgoT<T, STRATEGY>::getClusters(bool
       clusters_and_associations.hits_and_fractions->view(),
       static_cast<std::span<const int>>(cluster_hit_associations),
       static_cast<std::span<const ticl::HitAndFraction>>(detid_and_fractions));
-
-  for (auto i = 0; i < totalNumberOfClusters; ++i) {
-    std::cout << "i = " << i << " x = " << clusters_and_associations.layer_clusters->view().position()[i].x()
-              << " layer id = " << clusters_and_associations.layer_clusters->view().position()[i].layer()
-              << " cells = " << clusters_and_associations.layer_clusters->view().position()[i].cells() << std::endl;
-  }
-
-  std::cout << "x ptr = " << clusters_and_associations.layer_clusters->view().position().x().data()
-            << ", layer ptr = " << clusters_and_associations.layer_clusters->view().position().layer().data()
-            << std::endl;
 
   return clusters_and_associations;
 }
