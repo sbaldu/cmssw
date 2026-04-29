@@ -37,7 +37,7 @@
 <use name="TrackingTools/Records"/>
 <use name="TrackingTools/TrajectoryState"/>
 <use name="fastjet"/>
-<flags ALPAKA_BACKENDS="serial"/>
 <library file="*.cc" name="RecoHGCalTICLPlugins">
   <flags EDM_PLUGIN="1"/>
+  <flags ALPAKA_BACKENDS="serial"/>
 </library>
