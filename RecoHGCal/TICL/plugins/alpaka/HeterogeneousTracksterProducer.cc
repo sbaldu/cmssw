@@ -1,5 +1,6 @@
 #include <alpaka/alpaka.hpp>
 #include "HeterogeneousCore/AlpakaInterface/interface/config.h"
+#include "DataFormats/CaloRecHit/interface/alpaka/CaloClusterDeviceCollection.h"
 #include "DataFormats/HGCalReco/interface/HGCalSoAClusters.h"
 #include "DataFormats/HGCalReco/interface/HGCalSoARecHitsHostCollection.h"
 #include "DataFormats/HGCalReco/interface/alpaka/HGCalSoAClustersDeviceCollection.h"
@@ -62,14 +63,14 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       auto tracksters = std::vector<ticl::Trackster>();
       auto& queue = iEvent.queue();
       algo_->makeTracksters(queue, lc, tracksters);
-
+      std::cout << "n tracksters = " << tracksters.size() << std::endl;
       iEvent.emplace(legacyTrackstersToken_, std::move(tracksters));
     }
 
   private:
     // std::string detector_;
     // bool doNose_;
-    device::EDGetToken<HGCalSoAClustersDeviceCollection> const deviceTokenSoAClusters_;
+    device::EDGetToken<reco::CaloClusterDeviceCollection> const deviceTokenSoAClusters_;
     edm::EDPutTokenT<std::vector<ticl::Trackster>> const legacyTrackstersToken_;
     std::unique_ptr<PatternRecognitionAlgoBase> algo_;
     std::unique_ptr<PatternRecognitionAlgoBase> myAlgoHFNose_;
