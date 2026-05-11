@@ -2,6 +2,7 @@
 #pragma once
 
 #include "CondCore/CondDB/interface/Exception.h"
+#include "DataFormats/CaloRecHit/interface/alpaka/CaloClusterDeviceCollection.h"
 #include "DataFormats/HGCalReco/interface/HGCalSoAClusters.h"
 #include "DataFormats/HGCalReco/interface/HGCalSoARecHitsHostCollection.h"
 #include "DataFormats/HGCalReco/interface/alpaka/HGCalSoAClustersDeviceCollection.h"
@@ -35,7 +36,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     ~PatternRecognitionByCLUEstering() override = default;
 
     void makeTracksters(Queue& queue,
-                        const HGCalSoAClustersDeviceCollection& lc,
+                        const reco::CaloClusterDeviceCollection& lc,
                         std::vector<ticl::Trackster>& tracksters) override;
 
     static void fillPSetDescription(::edm::ParameterSetDescription& iDesc);
