@@ -153,25 +153,14 @@ void MergeClusterProducer::produce(edm::Event &evt, const edm::EventSetup &es) {
     edm::Handle<reco::CaloClusterHostCollection> handle;
     evt.getByToken(token, handle);
     total_layer_clusters += handle->view().position().metadata().size();
-    for (auto i = 0; i < handle->view().position().metadata().size(); ++i) {
-      std::cout << "i = " << i << " x = " << handle->view().position()[i].x()
-                << " layer id = " << handle->view().position()[i].layer()
-                << " cells = " << handle->view().position()[i].cells() << std::endl;
-    }
-    std::cout << "x ptr = " << handle->view().position().x().data()
-              << ", layer ptr = " << handle->view().position().layer().data() << std::endl;
     handles.push_back(handle);
   }
   auto merged = std::make_unique<reco::CaloClusterHostCollection>(
       cms::alpakatools::host(), total_layer_clusters, total_layer_clusters, total_layer_clusters, total_layer_clusters);
   auto start = 0u;
   for (auto handle : handles) {
-    std::cout << "size of soa from handle = " << handle->size()[0] << std::endl;
-    // std::cout << "x 0 from handle = " << handle->view().position().x()[0] << std::endl;
-    // std::cout << "layer 0 from handle = " << handle->view().position().layer()[0] << std::endl;
     mergeTogether(merged->view(), handle->view(), start);
   }
-  std::cout << "layer from merge = " << merged->view().position().layer()[0] << std::endl;
 
   //put new clusters to event
 
@@ -202,9 +191,6 @@ void MergeClusterProducer::mergeTogether(reco::CaloClusterHostCollection::View &
     merged.position().y()[cumulative_index] = input.position().y()[idx];
     merged.position().z()[cumulative_index] = input.position().z()[idx];
     merged.position().layer()[cumulative_index] = input.position().layer()[idx];
-    // std::cout << "from merge idx = " << idx << " cum idx = " << cumulative_index << " start = " << start
-    //           << "input layer = " << input.position().layer()[idx]
-    //           << " merged layer = " << merged.position().layer()[cumulative_index] << std::endl;
     merged.position().cells()[cumulative_index] = input.position().cells()[idx];
     merged.energy().energy()[cumulative_index] = input.energy().energy()[idx];
     merged.energy().correctedEnergy()[cumulative_index] = input.energy().correctedEnergy()[idx];
