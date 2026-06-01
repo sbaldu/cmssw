@@ -105,8 +105,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::vertexFinder {
           more = false;
       }
 
-      // avoid empty vertices
-      if (0 == wnew[0] || 0 == wnew[1])
+      // avoid empty or degenerate vertices (negative wnew indicates tracks with broken covariance)
+      if (wnew[0] <= 0 || wnew[1] <= 0)
         continue;
 
       // quality cut

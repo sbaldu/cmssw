@@ -37,6 +37,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
           if (tracks_view[idx].quality() < ::pixelTrack::Quality::highPurity)
             continue;
 
+          // filter out tracks with large transverse displacement relative to their uncertainty
+          if ((::reco::tip(tracks_view, idx) * ::reco::tip(tracks_view, idx)) / tracks_view[idx].covariance()(2) > 16)
+            continue;
+
           auto pt = tracks_view[idx].pt();
           // pT min cut
           if (pt < ptMin)
@@ -85,11 +89,12 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
       // Run CLUEstering
       if (nTracks > 0) {
-        clue::Clusterer<1> clusterer(queue, dc_, rhoc_, dm_);
+        clue::Clusterer<1> clusterer(queue, dc_, rhoc_, dm_, dm_);
         clue::PointsDevice<1, float, Device> d_points(
             queue, nTracks, workspaceView.zt(), workspaceView.ptt2(), workspaceView.iv());
         clusterer.make_clusters(queue, d_points);
         uint32_t nVertices = d_points.n_clusters();
+        std::cout << "found " << nVertices << " clusters\n";
         alpaka::memcpy(queue,
                        cms::alpakatools::make_device_view<uint32_t>(queue, verticesView.nvFinal()),
                        cms::alpakatools::make_host_view<uint32_t>(nVertices));
