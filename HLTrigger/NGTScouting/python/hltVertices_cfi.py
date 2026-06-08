@@ -37,3 +37,17 @@ hltSecondaryVertexTable = cms.EDProducer("SimpleSecondaryVertexFlatTableProducer
 
 hltSecondaryVertexTable.variables.pt.precision=10
 hltSecondaryVertexTable.variables.phi.precision=12
+hltSimVertexTable = cms.EDProducer("SimpleTrackingVertexFlatTableProducer",
+                                         skipNonExistingSrc = cms.bool(False),
+                                         src = cms.InputTag("mix", "MergedTrackTruth"),
+                                         name = cms.string("hltSimVertex"),
+                                         extension = cms.bool(False),
+                                         variables = cms.PSet(
+                                                              x   = Var("position().x()", float, doc = "secondary vertex X position, in cm",precision=10),
+                                                              y   = Var("position().y()", float, doc = "secondary vertex Y position, in cm",precision=10),
+                                                              z   = Var("position().z()", float, doc = "secondary vertex Z position, in cm",precision=14),
+                                                              ntracks = Var("nDaughterTracks()", "uint8", doc = "number of tracks"),
+                                                              bunchCrossing = Var("eventId().bunchCrossing()", int, doc = "bunch crossing"),
+                                                              event = Var("eventId().event()", int, doc = "event number"),
+                                                              ),
+                                         )

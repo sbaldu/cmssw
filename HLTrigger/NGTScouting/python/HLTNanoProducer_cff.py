@@ -100,6 +100,7 @@ NanoValTables = cms.Sequence(
     + hltLayerClustersTableSequence
     + hltTrackingParticleRecoTrackAssociationTable
     + hltRecoTrackTrackingParticleAssociationTable
+    + hltSimVertexTable
 )
 
 ######################################
