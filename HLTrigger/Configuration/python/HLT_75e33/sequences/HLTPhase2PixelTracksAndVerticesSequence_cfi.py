@@ -68,14 +68,19 @@ alpakaValidationHLT.toReplaceWith(HLTPhase2PixelTracksAndVerticesSequenceSerialS
 
 from Configuration.ProcessModifiers.clueVertexing_cff import clueVertexing
 _HLTPhase2PixelTracksAndVerticesSequenceWithCLUE = cms.Sequence(
-  HLTBeamSpotSequence
-  +hltPhase2PixelTracksAndHighPtStepTrackingRegions # needed by highPtTripletStep iteration
-  +hltPhase2PixelFitterByHelixProjections # needed by tracker muons
-  +hltPhase2PixelTrackFilterByKinematics  # needed by tracker muons
-  +hltPhase2PixelTracksSoA
-  +HLTCLUEVertexSequence
-  +hltPhase2PixelTracks
-  +HLTPhase2PixelVertexingSequence
+    HLTBeamSpotSequence
+    +hltPhase2PixelTracksAndHighPtStepTrackingRegions # needed by highPtTripletStep iteration
+    +hltPhase2PixelFitterByHelixProjections # needed by tracker muons
+    +hltPhase2PixelTrackFilterByKinematics  # needed by tracker muons
+    +hltPhase2OtRecHitsSoA
+    +hltPhase2PixelRecHitsExtendedSoA
+    +hltPhase2PixelTracksSoA
+    +HLTCLUEVertexSequence
+    # +hltPhase2PixelVertices
+    +hltPhase2PixelTracksCAExtension
+    +HLTPhase2PixelVertexingSequence
+    +hltPhase2PixelTracksCutClassifier
+    +hltPhase2PixelTracks
 )
 clueVertexing.toReplaceWith(HLTPhase2PixelTracksAndVerticesSequence, _HLTPhase2PixelTracksAndVerticesSequenceWithCLUE)
 
