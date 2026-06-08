@@ -31,7 +31,7 @@ hltPhase2LegacyTracking.toModify(hltPhase2PixelVertices,
 from Configuration.ProcessModifiers.clueVertexing_cff import clueVertexing
 from RecoVertex.PixelVertexFinding.pixelVertexFromSoAAlpaka_cfi import pixelVertexFromSoAAlpaka as _pixelVertexFromSoAAlpaka
 clueVertexing.toReplaceWith(hltPhase2PixelVertices, _pixelVertexFromSoAAlpaka.clone(
-    TrackCollection = cms.InputTag('hltPhase2PixelTracks'),
+    TrackCollection = cms.InputTag('hltPhase2PixelTracksCAExtension'),
     beamSpot = cms.InputTag('hltOnlineBeamSpot'),
     src = cms.InputTag('hltCLUEVertex'),
     mightGet = cms.optional.untracked.vstring))
