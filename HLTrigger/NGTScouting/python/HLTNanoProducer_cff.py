@@ -90,6 +90,7 @@ NanoValTables = cms.Sequence(
     + hltSimTiclCandidateTable
     + hltSimTiclCandidateExtraTable
     + hltLayerClustersTableSequence
+    + hltSimVertexTable
 )
 
 ######################################
