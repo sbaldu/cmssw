@@ -59,6 +59,24 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       }
     };
 
+    class AdaptiveGaussianKernel {
+    private:
+      const float* m_std;
+
+    public:
+      using value_type = float;
+
+      AdaptiveGaussianKernel(const float* std) : m_std{std} {}
+
+      ALPAKA_FN_ACC auto operator()(const Acc1D& acc, float dist, int point_id, int j) const {
+        if (point_id == j) {
+          return 1.f;
+        } else {
+          return (1 / m_std[j]) * clue::math::exp(-(dist * dist) / (2 * m_std[j] * m_std[j]));
+        }
+      }
+    };
+
     reco::ZVertexSoACollection Producer::makeAsync(
         Queue& queue, ::reco::TrackSoAConstView const& tracks_view, int maxVertices, float ptMin, float ptMax) {
       const auto maxTracks = tracks_view.metadata().size();
@@ -89,10 +107,13 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
       // Run CLUEstering
       if (nTracks > 0) {
-        clue::Clusterer<1> clusterer(queue, dc_, rhoc_, dm_, dm_);
+        clue::Clusterer<1> clusterer(queue, dc_, rhoc_, dm_, seed_dc_);
         clue::PointsDevice<1, float, Device> d_points(
             queue, nTracks, workspaceView.zt(), workspaceView.ptt2(), workspaceView.iv());
-        clusterer.make_clusters(queue, d_points);
+        // clue::GaussianKernel kernel(0.f, 0.0003f, 2.f);
+        clue::metrics::Euclidean<1> metric{};
+        clusterer.make_clusters(queue, d_points, metric, AdaptiveGaussianKernel(workspaceView.ezt2().data()));
+        // clusterer.make_clusters(queue, d_points);
         uint32_t nVertices = d_points.n_clusters();
         std::cout << "found " << nVertices << " clusters\n";
         alpaka::memcpy(queue,
