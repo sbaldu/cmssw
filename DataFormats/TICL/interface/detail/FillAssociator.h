@@ -16,7 +16,9 @@ namespace ticl::associator::detail {
                                   TKey* keys_counts,
                                   std::size_t size) const {
       for (auto i : alpaka::uniformElements(acc, size)) {
-        alpaka::atomicAdd(acc, &keys_counts[keys[i]], TKey{1});
+        const auto key = keys[i];
+        if (key >= 0)
+          alpaka::atomicAdd(acc, &keys_counts[keys[i]], TKey{1});
       }
     }
   };
@@ -30,8 +32,10 @@ namespace ticl::associator::detail {
                                   TKey* temp_offsets) const {
       for (auto i : alpaka::uniformElements(acc, values.size())) {
         const auto key = keys[i];
-        const auto offset = alpaka::atomicAdd(acc, &temp_offsets[key], TKey{1});
-        view.content().values()[offset] = values[i];
+        if (key >= 0) {
+          const auto offset = alpaka::atomicAdd(acc, &temp_offsets[key], TKey{1});
+          view.content().values()[offset] = values[i];
+        }
       }
     }
   };

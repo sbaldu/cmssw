@@ -29,6 +29,8 @@ namespace ticl {
     constexpr LayerTilesView() = default;
     constexpr LayerTilesView(::ticl::AssociationMapConstView<> assoc_view) : associations{assoc_view} {}
 
+    // ALPAKA_FN_ACC auto keys() const { return associations.keys(); }
+
     ALPAKA_FN_ACC auto operator[](std::size_t idx) const { return associations[idx]; }
     ALPAKA_FN_ACC auto operator[](std::size_t idx) { return associations[idx]; }
 
@@ -82,6 +84,9 @@ namespace ticl {
       }
       return std::array<int, 4>({{etaBinMin, etaBinMax, phiBinMin, phiBinMax}});
     }
+
+    auto content() const { return associations.content(); }
+    auto offsets() const { return associations.offsets(); }
   };
 
   struct KernelTilesAssociations {
@@ -143,7 +148,7 @@ namespace ticl {
     friend struct ::cms::alpakatools::CopyToDevice;
   };
 
-  template <concepts::LayerTile LayerTile, std::size_t N, typename TDev>
+  template <typename LayerTile, std::size_t N, typename TDev>
   class Tiles {
   public:
     using LayerTilesType = LayerTiles<LayerTile, TDev>;
