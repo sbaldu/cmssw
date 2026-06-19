@@ -132,7 +132,7 @@ void PatternRecognitionbyCA<TILES>::makeTracksters(
     std::vector<std::pair<unsigned int, unsigned int>> lcIdAndLayer;
     lcIdAndLayer.reserve(effective_cluster_idx.size());
     for (auto const i : effective_cluster_idx) {
-      auto layerId = rhtools_.getLayerWithOffset(input.layerClusters.view().indexes()[i].seedID());
+      auto layerId = rhtools->getLayerWithOffset(input.layerClusters.view().indexes()[i].seedID());
       showerMinLayerId = std::min(layerId, showerMinLayerId);
       uniqueLayerIds.push_back(layerId);
       lcIdAndLayer.emplace_back(i, layerId);

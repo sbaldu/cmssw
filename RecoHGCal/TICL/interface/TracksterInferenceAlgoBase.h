@@ -37,8 +37,8 @@ namespace ticl {
 
     // Build minibatches internally.
     virtual void runInference(const reco::CaloClusterHostCollection& layerClusters,
-                           std::vector<Trackster>& tracksters,
-                           const hgcal::RecHitTools& rhtools) const = 0;
+                              std::vector<Trackster>& tracksters,
+                              const hgcal::RecHitTools& rhtools) const = 0;
 
     static void fillPSetDescription(edm::ParameterSetDescription& desc) { desc.add<int>("algo_verbosity", 0); }
 

@@ -40,7 +40,7 @@ void PatternRecognitionbyRecovery<TILES>::makeTracksters(
   // Clear the result vector
   result.clear();
 
-  result.reserve(input.layerClusters.size() / 16);  // Heuristic
+  result.reserve(input.layerClusters.size()[0] / 16);  // Heuristic
 
   // Iterate over all layer clusters
   auto clusters = input.layerClusters.view();
@@ -79,7 +79,7 @@ void PatternRecognitionbyRecovery<TILES>::makeTracksters(
         {float(clusters.position()[i].x()), float(clusters.position()[i].y()), float(clusters.position()[i].z())});
     trackster.calculateRawPt();
 
-    if (std::abs(clusters.position()[i].z()) <= z_limit_em) {
+    if (std::abs(clusters.position()[i].z()) <= z_limit_em_) {
       trackster.setRawEmEnergy(clusters.energy()[i].energy());
       trackster.calculateRawEmPt();
     }

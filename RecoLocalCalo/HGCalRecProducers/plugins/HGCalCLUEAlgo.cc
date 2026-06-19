@@ -211,14 +211,14 @@ ticl::LayerClustersAndAssociations HGCalCLUEAlgoT<T, STRATEGY>::getClusters(bool
           if ((d1 * d1 + d2 * d2) < positionDeltaRho2_) {
             if (thick < 0 or (not std::cmp_less(thick, thresholdW0_.size()))) {
               throw cms::Exception("HGCalClusterOutOfBounds")
-                  << "the thickness " << thick << " for DetId " << maxEnergyDetId.rawId() << " is not within the size "
-                  << thresholdW0_.size();
+                  << "the thickness " << thick << " for DetId " << max_energy_detid.rawId()
+                  << " is not within the size " << thresholdW0_.size();
             }
-            auto Wi = std::max(thresholdW0_[thick] + std::log(points.weights()[p] / energy), 0.f);
+            auto Wi = std::max(thresholdW0_[thick] + std::log(points.weights()[p] / energy), 0.);
             if (std::isnan(Wi)) {
               throw cms::Exception("HGCalClusterNan")
-                  << "The weight for cell " << cellIdx << " is a nan. The values in the calculation are weight "
-                  << cellsOnLayer.weight[cellIdx] << " energy " << energy;
+                  << "The weight for cell " << p << " is a nan. The values in the calculation are weight "
+                  << points.weights()[p] << " energy " << energy;
             }
             x += points.coords(0)[p] * Wi;
             y += points.coords(1)[p] * Wi;
@@ -242,7 +242,7 @@ ticl::LayerClustersAndAssociations HGCalCLUEAlgoT<T, STRATEGY>::getClusters(bool
 
       if (std::isnan(x) or std::isnan(y)) {
         throw cms::Exception("HGCalClusterNan")
-            << "while calculating the position of cluster seeded by " << seedDetId->rawId() << " we got x = " << x
+            << "while calculating the position of cluster seeded by " << cells_[layerId].seeds[cl] << " we got x = " << x
             << " y = " << y << " z = " << z;
       }
 

@@ -100,17 +100,16 @@ namespace ticl {
         clusterIndices.resize(vtxCount);
         std::iota(clusterIndices.begin(), clusterIndices.end(), 0);
 
-        std::sort(clusterIndices.begin(), clusterIndices.end(), [&layerClusters, &ts](int a, int b) {
-          return layerClusters[ts.vertices(a)].energy() > layerClusters[ts.vertices(b)].energy();
+        std::sort(clusterIndices.begin(), clusterIndices.end(), [&clusters, &ts](int a, int b) {
+          return clusters.energy()[ts.vertices(a)].energy() > clusters.energy()[ts.vertices(b)].energy();
         });
 
         std::fill(seenClusters.begin(), seenClusters.end(), 0);
 
         for (int k : clusterIndices) {
           const unsigned int v = ts.vertices(k);
-          auto const& cl = layerClusters[v];
 
-          const int j = rhtools.getLayerWithOffset(cl.hitsAndFractions()[0].first) - 1;
+          const int j = rhtools.getLayerWithOffset(clusters.indexes()[k].seedID()) - 1;
           if (j < 0 || j >= eidNLayers_) {
             continue;
           }
@@ -122,9 +121,9 @@ namespace ticl {
               (static_cast<size_t>(bi) * eidNLayers_ + static_cast<size_t>(j)) * (eidNClusters_ * eidNFeatures_) +
               static_cast<size_t>(seenClusters[j]) * eidNFeatures_;
 
-          in[base + 0] = static_cast<float>(cl.energy() / static_cast<float>(ts.vertex_multiplicity(k)));
-          in[base + 1] = static_cast<float>(std::abs(cl.eta()));
-          in[base + 2] = static_cast<float>(cl.phi());
+          in[base + 0] = static_cast<float>(clusters.energy()[k].energy() / static_cast<float>(ts.vertex_multiplicity(k)));
+          in[base + 1] = static_cast<float>(std::abs(clusters.eta(k)));
+          in[base + 2] = static_cast<float>(clusters.phi(k));
 
           ++seenClusters[j];
         }
@@ -132,11 +131,6 @@ namespace ticl {
 
       if (doRegression_ != 0 && onnxEnergySession_ != nullptr) {
         ortScratch.outputs.clear();
-
-      // TODO: is the sort still needed?
-      std::sort(clusterIndices.begin(), clusterIndices.end(), [&clusters, &trackster](const int& a, const int& b) {
-        return clusters.energy()[trackster.vertices(a)].energy() > clusters.energy()[trackster.vertices(b)].energy();
-      });
 
         onnxEnergySession_->runInto(
             inputNames_, ortScratch.inputs, ortScratch.input_shapes, output_en_, ortScratch.outputs, {}, n);
@@ -162,17 +156,17 @@ namespace ticl {
             ts.setProbabilities(probs);
             probs += ts.id_probabilities().size();
           }
-      // Fill input data with cluster information
-      // TODO: still needed?
-      // for (const int& k : clusterIndices) {
-      //   int j = rhtools.getLayerWithOffset(clusters.indexes()[k].seedID()) - 1;
-      //   if (j < eidNLayers_ && seenClusters[j] < eidNClusters_) {
-      //     auto index = (i * eidNLayers_ + j) * eidNFeatures_ * eidNClusters_ + seenClusters[j] * eidNFeatures_;
-      //     input_Data_[0][index] =
-      //         static_cast<float>(clusters.energy()[k].energy() / static_cast<float>(trackster.vertex_multiplicity(k)));
-      //     input_Data_[0][index + 1] = static_cast<float>(std::abs(clusters.eta(k)));
-      //     input_Data_[0][index + 2] = static_cast<float>(clusters.phi(k));
-      //     seenClusters[j]++;
+          // Fill input data with cluster information
+          // TODO: still needed?
+          // for (const int& k : clusterIndices) {
+          //   int j = rhtools.getLayerWithOffset(clusters.indexes()[k].seedID()) - 1;
+          //   if (j < eidNLayers_ && seenClusters[j] < eidNClusters_) {
+          //     auto index = (i * eidNLayers_ + j) * eidNFeatures_ * eidNClusters_ + seenClusters[j] * eidNFeatures_;
+          //     input_Data_[0][index] =
+          //         static_cast<float>(clusters.energy()[k].energy() / static_cast<float>(trackster.vertex_multiplicity(k)));
+          //     input_Data_[0][index + 1] = static_cast<float>(std::abs(clusters.eta(k)));
+          //     input_Data_[0][index + 2] = static_cast<float>(clusters.phi(k));
+          //     seenClusters[j]++;
         }
       }
     }

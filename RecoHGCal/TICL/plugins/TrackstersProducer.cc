@@ -160,7 +160,6 @@ void TrackstersProducer::produce(edm::Event& evt, const edm::EventSetup& es) {
   const auto& original_layerclusters_mask = evt.get(original_layerclusters_mask_token_);
   const auto& layerClusters = evt.get(clusters_token_);
   const auto& inputClusterMask = evt.get(filtered_layerclusters_mask_token_);
-  const auto& layerClustersTimes = evt.get(clustersTime_token_);
   const auto& seeding_regions = evt.get(seeding_regions_token_);
 
   std::unordered_map<int, std::vector<int>> seedToTrackstersAssociation;
@@ -175,7 +174,7 @@ void TrackstersProducer::produce(edm::Event& evt, const edm::EventSetup& es) {
     if (doNose_) {
       const auto& tiles = evt.get(layer_clusters_tiles_hfnose_token_);
       const typename PatternRecognitionAlgoBaseT<TICLLayerTilesHFNose>::Inputs inputHFNose(
-          evt, es, layerClusters, inputClusterMask, layerClustersTimes, tiles, seeding_regions);
+          evt, es, layerClusters, inputClusterMask, tiles, seeding_regions);
 
       myAlgoHFNose_->makeTracksters(inputHFNose, *initialResult, seedToTrackstersAssociation);
 
@@ -188,7 +187,7 @@ void TrackstersProducer::produce(edm::Event& evt, const edm::EventSetup& es) {
     } else if (doBarrel_) {
       const auto& layer_clusters_barrel_tiles = evt.get(layer_clusters_tiles_barrel_token_);
       const typename PatternRecognitionAlgoBaseT<TICLLayerTilesBarrel>::Inputs inputBarrel(
-          evt, es, layerClusters, inputClusterMask, layerClustersTimes, layer_clusters_barrel_tiles, seeding_regions);
+          evt, es, layerClusters, inputClusterMask, layer_clusters_barrel_tiles, seeding_regions);
 
       if (inferenceAlgo_) {
         inferenceAlgo_->runInference(layerClusters, *initialResult, rhtools_);
@@ -198,7 +197,7 @@ void TrackstersProducer::produce(edm::Event& evt, const edm::EventSetup& es) {
     } else {
       const auto& tiles = evt.get(layer_clusters_tiles_token_);
       const typename PatternRecognitionAlgoBaseT<TICLLayerTiles>::Inputs input(
-          evt, es, layerClusters, inputClusterMask, layerClustersTimes, tiles, seeding_regions);
+          evt, es, layerClusters, inputClusterMask, tiles, seeding_regions);
 
       myAlgo_->makeTracksters(input, *initialResult, seedToTrackstersAssociation);
 

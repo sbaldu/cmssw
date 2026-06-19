@@ -38,8 +38,8 @@ namespace ticl {
   }
 
   void TracksterInferenceByPFN::runInference(const reco::CaloClusterHostCollection& layerClusters,
-                                          std::vector<Trackster>& tracksters,
-                                          const hgcal::RecHitTools& rhtools) const {
+                                             std::vector<Trackster>& tracksters,
+                                             const hgcal::RecHitTools& rhtools) const {
     if (!enabled_ || tracksters.empty()) {
       return;
     }
@@ -70,7 +70,6 @@ namespace ticl {
       return;
     }
 
-<<<<<<< HEAD
     const int mb = std::max(1, miniBatchSize_);
 
     // Scratch buffers are local to this event.
@@ -127,7 +126,7 @@ namespace ticl {
         for (int k : clusterIndices) {
           const unsigned int v = ts.vertices(k);
 
-          const auto j = rhtools.getLayerWithOffset(clusters.indexes()[k].seedID()) - 1;
+          const int j = rhtools.getLayerWithOffset(clusters.indexes()[k].seedID()) - 1;
           if (j < 0 || j >= eidNLayers_) {
             continue;
           }
@@ -139,7 +138,8 @@ namespace ticl {
               (static_cast<size_t>(bi) * eidNLayers_ + static_cast<size_t>(j)) * (eidNClusters_ * eidNFeatures_) +
               static_cast<size_t>(seenClusters[j]) * eidNFeatures_;
 
-          lcTensor[base_lc + 0] = static_cast<float>(clusters.energy()[k].energy() / static_cast<float>(ts.vertex_multiplicity(k)));
+          lcTensor[base_lc + 0] =
+              static_cast<float>(clusters.energy()[k].energy() / static_cast<float>(ts.vertex_multiplicity(k)));
           lcTensor[base_lc + 1] = static_cast<float>(std::abs(clusters.eta(k)));
           lcTensor[base_lc + 2] = static_cast<float>(clusters.phi(k));
           lcTensor[base_lc + 3] = static_cast<float>(clusters.position()[k].x());

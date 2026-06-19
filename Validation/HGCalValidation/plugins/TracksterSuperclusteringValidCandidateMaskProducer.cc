@@ -25,12 +25,11 @@
 
 // using namespace ticl;
 using std::vector;
-using ticl::AssociationMap;
 using ticl::Trackster;
 using ticl::TracksterCollection;
 
 using TracksterToTracksterMap =
-    ticl::AssociationMap<ticl::mapWithSharedEnergyAndScore, vector<ticl::Trackster>, vector<ticl::Trackster>>;
+    ticl::TICLAssociationMap<ticl::mapWithSharedEnergyAndScore, vector<ticl::Trackster>, vector<ticl::Trackster>>;
 
 class TracksterSuperclusteringValidCandidateMaskProducer : public edm::stream::EDProducer<> {
 public:

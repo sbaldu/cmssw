@@ -208,11 +208,11 @@ void PatternRecognitionbyCLUE3D<TILES>::makeTracksters(
       continue;
     }
     const auto seed_id = clusters.indexes()[idx].seedID();
-    int layer = rhtools_.getLayerWithOffset(seed_id) - 1 +
-                rhtools_.lastLayer(false) * ((rhtools_.zside(seed_id) + 1) >> 1);
+    int layer =
+        rhtools->getLayerWithOffset(seed_id) - 1 + rhtools->lastLayer(false) * ((rhtools->zside(seed_id) + 1) >> 1);
     assert(layer >= 0);
     if (!isBarrel_)
-      layer += rhtools->lastLayer() * ((rhtools->zside(firstHitDetId) + 1) >> 1) - 1;
+      layer += rhtools->lastLayer() * ((rhtools->zside(seed_id) + 1) >> 1) - 1;
     const auto detId = seed_id;
     int layerClusterIndexInLayer = clusters_[layer].x.size();
     layerIdx2layerandSoa.emplace_back(layer, layerClusterIndexInLayer);
@@ -284,7 +284,7 @@ void PatternRecognitionbyCLUE3D<TILES>::makeTracksters(
     } else {
       clusters_[layer].algoId.push_back(clusters.indexes()[idx].algoID() - reco::CaloCluster::barrel_em);
     }
-    clusters_[layer].isSilicon.push_back(rhtools_.isSilicon(detId));
+    clusters_[layer].isSilicon.push_back(rhtools->isSilicon(detId));
     clusters_[layer].energy.emplace_back(clusters.energy()[idx].energy());
     clusters_[layer].isSeed.push_back(false);
     clusters_[layer].clusterIndex.emplace_back(-1);
