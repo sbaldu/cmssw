@@ -560,7 +560,6 @@ namespace cms::soa {
 
   // TODO from Eric Cano:
   //   - add alignment support
-  //   - SFINAE-based const/non const variants
 
   // Column
   template <typename T, byte_size_type alignment, bool restrictQualify>
