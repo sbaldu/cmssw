@@ -279,17 +279,21 @@ namespace cms::soa {
     static_assert(COLUMN_TYPE != SoAColumnType::eigen);
 
   public:
-    using Restr = add_restrict<T, RESTRICT_QUALIFY>;
+    using ElementType = std::remove_cvref_t<T>;
+    using Restr = add_restrict<ElementType, RESTRICT_QUALIFY>;
     using Val = typename Restr::Value;
     using Ptr = typename Restr::Pointer;
     using Ref = typename Restr::Reference;
     using PtrToConst = typename Restr::PointerToConst;
     using RefToConst = typename Restr::ReferenceToConst;
+    using Params = SoAParametersImpl<COLUMN_TYPE, std::remove_const_t<T>>;
+    using ConstParams = SoAConstParametersImpl<COLUMN_TYPE, std::remove_const_t<T>>;
 
     SOA_HOST_DEVICE SOA_INLINE SoAValue(size_type i, T* col) : idx_(i), col_(col) {}
 
-    SOA_HOST_DEVICE SOA_INLINE SoAValue(size_type i, SoAParametersImpl<COLUMN_TYPE, T> params)
-        : idx_(i), col_(params.addr_) {}
+    template <typename U>
+    SOA_HOST_DEVICE SOA_INLINE SoAValue(size_type i, SoAParametersImpl<COLUMN_TYPE, U> params)
+        : idx_(i), col_(const_cast<T*>(params.addr_)) {}
 
     SOA_HOST_DEVICE SOA_INLINE Ref operator()() {
       // Ptr type will add the restrict qualifyer if needed
@@ -343,15 +347,14 @@ namespace cms::soa {
   template <class C, byte_size_type ALIGNMENT, bool RESTRICT_QUALIFY>
   class SoAValue<SoAColumnType::eigen, C, ALIGNMENT, RESTRICT_QUALIFY> {
   public:
-    using Type = C;
-    using MapType = Eigen::Map<C, 0, Eigen::InnerStride<Eigen::Dynamic>>;
-    using CMapType = const Eigen::Map<const C, 0, Eigen::InnerStride<Eigen::Dynamic>>;
-    using Restr = add_restrict<typename C::Scalar, RESTRICT_QUALIFY>;
-    using Val = typename Restr::Value;
+    using Type = std::remove_cvref_t<C>;
+    using ElementType = std::remove_cvref_t<typename C::Scalar>;
+    using Restr = add_restrict<ElementType, RESTRICT_QUALIFY>;
     using Ptr = typename Restr::Pointer;
-    using Ref = typename Restr::Reference;
-    using PtrToConst = typename Restr::PointerToConst;
-    using RefToConst = typename Restr::ReferenceToConst;
+    using MapType = Eigen::Map<Type, 0, Eigen::InnerStride<Eigen::Dynamic>>;
+    using CMapType = Eigen::Map<const Type, 0, Eigen::InnerStride<Eigen::Dynamic>>;
+    using RefToConst = const CMapType&;
+    using ConstParams = SoAConstParametersImpl<SoAColumnType::eigen, Type>;
 
     SOA_HOST_DEVICE SOA_INLINE SoAValue(size_type i, typename C::Scalar* col, byte_size_type stride)
         : val_(col + i, C::RowsAtCompileTime, C::ColsAtCompileTime, Eigen::InnerStride<Eigen::Dynamic>(stride)),
@@ -359,12 +362,13 @@ namespace cms::soa {
           cVal_(crCol_ + i, C::RowsAtCompileTime, C::ColsAtCompileTime, Eigen::InnerStride<Eigen::Dynamic>(stride)),
           stride_(stride) {}
 
-    SOA_HOST_DEVICE SOA_INLINE SoAValue(size_type i, SoAParametersImpl<SoAColumnType::eigen, C> params)
-        : val_(params.addr_ + i,
+    template <typename U>
+    SOA_HOST_DEVICE SOA_INLINE SoAValue(size_type i, SoAParametersImpl<SoAColumnType::eigen, U> params)
+        : val_(const_cast<typename C::Scalar*>(params.addr_) + i,
                C::RowsAtCompileTime,
                C::ColsAtCompileTime,
                Eigen::InnerStride<Eigen::Dynamic>(params.stride_)),
-          crCol_(params.addr_),
+          crCol_(const_cast<typename C::Scalar*>(params.addr_)),
           cVal_(crCol_ + i,
                 C::RowsAtCompileTime,
                 C::ColsAtCompileTime,
@@ -420,116 +424,18 @@ namespace cms::soa {
     };
   };
 
-  // Helper template managing a const value at index idx within a column.
   template <SoAColumnType COLUMN_TYPE,
             typename T,
             byte_size_type ALIGNMENT,
             bool RESTRICT_QUALIFY = RestrictQualify::disabled>
-  class SoAConstValue {
-    // Eigen is implemented in a specialization
-    static_assert(COLUMN_TYPE != SoAColumnType::eigen);
-
-  public:
-    using Restr = add_restrict<T, RESTRICT_QUALIFY>;
-    using Val = typename Restr::Value;
-    using Ptr = typename Restr::Pointer;
-    using Ref = typename Restr::Reference;
-    using PtrToConst = typename Restr::PointerToConst;
-    using RefToConst = typename Restr::ReferenceToConst;
-    using Params = SoAParametersImpl<COLUMN_TYPE, T>;
-    using ConstParams = SoAConstParametersImpl<COLUMN_TYPE, T>;
-
-    SOA_HOST_DEVICE SOA_INLINE SoAConstValue(size_type i, const T* col) : idx_(i), col_(col) {}
-
-    SOA_HOST_DEVICE SOA_INLINE SoAConstValue(size_type i, SoAParametersImpl<COLUMN_TYPE, T> params)
-        : idx_(i), col_(params.addr_) {}
-
-    SOA_HOST_DEVICE SOA_INLINE SoAConstValue(size_type i, SoAConstParametersImpl<COLUMN_TYPE, T> params)
-        : idx_(i), col_(params.addr_) {}
-
-    SOA_HOST_DEVICE SOA_INLINE RefToConst operator()() const {
-      // Ptr type will add the restrict qualifyer if needed
-      PtrToConst col = col_;
-      return col[idx_];
-    }
-
-    SOA_HOST_DEVICE SOA_INLINE const T* operator&() const { return &col_[idx_]; }
-
-    /* This was an attempt to implement the syntax
-     *
-     *     old_value = view.x
-     *
-     * instead of
-     *
-     *     old_value = view.x()
-     *
-     *  but it was found to break in some corner cases.
-     *  We keep them commented out for the time being.
-
-    SOA_HOST_DEVICE SOA_INLINE operator T&() { return col_[idx_]; }
-    */
-
-    using valueType = T;
-    static constexpr auto valueSize = sizeof(T);
-
-  private:
-    size_type idx_;
-    const T* col_;
-  };
-
-  // Eigen/Core should be pre-included before the SoA headers to enable support for Eigen columns.
-#ifdef EIGEN_WORLD_VERSION
-  // Helper template managing a const Eigen-type value at index idx within a column.
-  template <class C, byte_size_type ALIGNMENT, bool RESTRICT_QUALIFY>
-  class SoAConstValue<SoAColumnType::eigen, C, ALIGNMENT, RESTRICT_QUALIFY> {
-  public:
-    using Type = C;
-    using CMapType = Eigen::Map<const C, 0, Eigen::InnerStride<Eigen::Dynamic>>;
-    using RefToConst = const CMapType&;
-    using ConstParams = SoAConstParametersImpl<SoAColumnType::eigen, C>;
-
-    SOA_HOST_DEVICE SOA_INLINE SoAConstValue(size_type i, typename C::Scalar* col, byte_size_type stride)
-        : crCol_(col),
-          cVal_(crCol_ + i, C::RowsAtCompileTime, C::ColsAtCompileTime, Eigen::InnerStride<Eigen::Dynamic>(stride)),
-          stride_(stride) {}
-
-    SOA_HOST_DEVICE SOA_INLINE SoAConstValue(size_type i, SoAConstParametersImpl<SoAColumnType::eigen, C> params)
-        : crCol_(params.addr_),
-          cVal_(crCol_ + i,
-                C::RowsAtCompileTime,
-                C::ColsAtCompileTime,
-                Eigen::InnerStride<Eigen::Dynamic>(params.stride_)),
-          stride_(params.stride_) {}
-
-    SOA_HOST_DEVICE SOA_INLINE const CMapType& operator()() const { return cVal_; }
-
-    SOA_HOST_DEVICE SOA_INLINE operator const C() const { return cVal_; }
-
-    SOA_HOST_DEVICE SOA_INLINE const C* operator&() const { return &cVal_; }
-
-    using ValueType = typename C::Scalar;
-    static constexpr auto valueSize = sizeof(typename C::Scalar);
-
-    SOA_HOST_DEVICE SOA_INLINE byte_size_type stride() const { return stride_; }
-
-  private:
-    const typename C::Scalar* __restrict__ crCol_;
-    CMapType cVal_;
-    byte_size_type stride_;
-  };
-#else
-  // Raise a compile-time error
-  template <class C, byte_size_type ALIGNMENT, bool RESTRICT_QUALIFY>
-  class SoAConstValue<SoAColumnType::eigen, C, ALIGNMENT, RESTRICT_QUALIFY> {
-    static_assert(!sizeof(C),
-                  "Eigen/Core should be pre-included before the SoA headers to enable support for Eigen columns.");
-  };
-#endif
+    requires std::same_as<std::remove_const_t<T>, T>
+  using SoAConstValue = SoAValue<COLUMN_TYPE, const T, ALIGNMENT, RESTRICT_QUALIFY>;
 
   // Matryoshka template to avoid commas inside macros
   template <SoAColumnType COLUMN_TYPE>
   struct SoAConstValue_ColumnType {
     template <typename T>
+      requires std::same_as<std::remove_const_t<T>, T>
     struct DataType {
       template <byte_size_type ALIGNMENT>
       struct Alignment {
