@@ -435,7 +435,7 @@ namespace cms::soa {
     requires std::same_as<std::remove_const_t<T>, T>
   using SoAConstValue = SoAValue<COLUMN_TYPE, const T, ALIGNMENT, RESTRICT_QUALIFY>;
 
-  // Matryoshka template to avoid commas inside macros template <SoAColumnType COLUMN_TYPE>
+  // Matryoshka template to avoid commas inside macros
   template <SoAColumnType COLUMN_TYPE>
   struct SoAConstValue_ColumnType {
     template <typename T>
@@ -564,7 +564,6 @@ namespace cms::soa {
 
   // TODO from Eric Cano:
   //   - add alignment support
-  //   - SFINAE-based const/non const variants
 
   // Column
   template <typename T, byte_size_type alignment, bool restrictQualify>
