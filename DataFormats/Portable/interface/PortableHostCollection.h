@@ -47,6 +47,18 @@ public:
     assert(reinterpret_cast<uintptr_t>(buffer_->data()) % Layout::alignment == 0);
   }
 
+  template <std::integral Int>
+  PortableHostCollection(alpaka_common::DevHost const& host, const Int size)
+    requires({ Layout::blocksNumber; })
+      // allocate pageable host memory
+      : buffer_{cms::alpakatools::make_host_buffer<std::byte[]>(
+            Layout::computeDataSize(make_array<Layout::blocksNumber>(portablecollection::size_cast(size))))},
+        layout_{buffer_->data(), make_array<Layout::blocksNumber>(portablecollection::size_cast(size))},
+        view_{layout_} {
+    // Alpaka set to a default alignment of 128 bytes defining ALPAKA_DEFAULT_HOST_MEMORY_ALIGNMENT=128
+    assert(reinterpret_cast<uintptr_t>(buffer_->data()) % Layout::alignment == 0);
+  }
+
   template <typename TQueue, std::integral Int>
     requires(alpaka::isQueue<TQueue> && (!requires { Layout::blocksNumber; }))
   PortableHostCollection(TQueue const& queue, const Int size)
@@ -59,11 +71,29 @@ public:
     assert(reinterpret_cast<uintptr_t>(buffer_->data()) % Layout::alignment == 0);
   }
 
+  template <typename TQueue, std::integral Int>
+    requires(alpaka::isQueue<TQueue> && (!requires { Layout::blocksNumber; }))
+  PortableHostCollection(TQueue const& queue, const Int size)
+      // allocate pinned host memory associated to the given work queue, accessible by the queue's device
+      : buffer_{cms::alpakatools::make_host_buffer<std::byte[]>(
+            queue, Layout::computeDataSize(make_array<Layout::blocksNumber>(portablecollection::size_cast(size))))},
+        layout_{buffer_->data(), make_array<Layout::blocksNumber>(portablecollection::size_cast(size))},
+        view_{layout_} {
+    // Alpaka set to a default alignment of 128 bytes defining ALPAKA_DEFAULT_HOST_MEMORY_ALIGNMENT=128
+    assert(reinterpret_cast<uintptr_t>(buffer_->data()) % Layout::alignment == 0);
+  }
+
   // constructor for code that does not use alpaka explicitly, using the global "host" object returned by cms::alpakatools::host()
   template <std::integral Int>
   PortableHostCollection(const Int size)
     requires(!requires { Layout::blocksNumber; })
       : PortableHostCollection(cms::alpakatools::host(), size) {}
+
+  template <std::integral Int>
+  PortableHostCollection(const Int size)
+    requires({ Layout::blocksNumber; })
+      : PortableHostCollection(cms::alpakatools::host(),
+                               make_array<Layout::blocksNumber>(portablecollection::size_cast(size))) {}
 
   // constructor for code that does not use alpaka explicitly, using the global "host" object returned by cms::alpakatools::host()
   // constructor for a SoABlocks-layout, taking per-block sizes as variadic integral arguments
