@@ -48,10 +48,13 @@ public:
 
   template <std::integral Int>
   PortableDeviceCollection(TDev const& device, const Int size)
-    requires({ Layout::blocksNumber; })
+    requires(requires { Layout::blocksNumber; })
       : buffer_{cms::alpakatools::make_device_buffer<std::byte[]>(
-            device, Layout::computeDataSize(make_array<Layout::blocksNumber>(portablecollection::size_cast(size))))},
-        layout_{buffer_->data(), make_array<Layout::blocksNumber>(portablecollection::size_cast(size))},
+            device,
+            Layout::computeDataSize(
+                portablecollection::make_array<Layout::blocksNumber>(portablecollection::size_cast(size))))},
+        layout_{buffer_->data(),
+                portablecollection::make_array<Layout::blocksNumber>(portablecollection::size_cast(size))},
         view_{layout_} {
     // Alpaka set to a default alignment of 128 bytes defining ALPAKA_DEFAULT_HOST_MEMORY_ALIGNMENT=128
     assert(reinterpret_cast<uintptr_t>(buffer_->data()) % Layout::alignment == 0);
@@ -69,11 +72,14 @@ public:
   }
 
   template <typename TQueue, std::integral Int>
-    requires(alpaka::isQueue<TQueue> && { Layout::blocksNumber; })
+    requires(alpaka::isQueue<TQueue> && requires { Layout::blocksNumber; })
   PortableDeviceCollection(TQueue const& queue, const Int size)
       : buffer_{cms::alpakatools::make_device_buffer<std::byte[]>(
-            queue, Layout::computeDataSize(make_array<Layout::blocksNumber>(portablecollection::size_cast(size))))},
-        layout_{buffer_->data(), make_array<Layout::blocksNumber>(portablecollection::size_cast(size))},
+            queue,
+            Layout::computeDataSize(
+                portablecollection::make_array<Layout::blocksNumber>(portablecollection::size_cast(size))))},
+        layout_{buffer_->data(),
+                portablecollection::make_array<Layout::blocksNumber>(portablecollection::size_cast(size))},
         view_{layout_} {
     // Alpaka set to a default alignment of 128 bytes defining ALPAKA_DEFAULT_HOST_MEMORY_ALIGNMENT=128
     assert(reinterpret_cast<uintptr_t>(buffer_->data()) % Layout::alignment == 0);
