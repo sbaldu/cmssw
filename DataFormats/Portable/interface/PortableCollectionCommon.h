@@ -1,6 +1,7 @@
 #ifndef DataFormats_Portable_interface_PortableCollectionCommon_h
 #define DataFormats_Portable_interface_PortableCollectionCommon_h
 
+#include <concepts>
 #include <format>
 #include <limits>
 #include <stdexcept>
@@ -45,6 +46,13 @@ namespace portablecollection {
                       input));
     }
     return static_cast<int>(input);
+  }
+
+  template <std::size_t N, std::integral T>
+  auto make_array(T x) {
+    std::array<T, N> arr;
+    arr.fill(x);
+    return arr;
   }
 
 }  // namespace portablecollection
