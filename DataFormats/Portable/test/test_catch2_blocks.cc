@@ -117,3 +117,11 @@ TEST_CASE("Deep copy from SoABlocks Generic View") {
             pcaCollectionConstView.metadata().addressOf_candidateDirection());
   }
 }
+
+TEST_CASE("Construct SoA with same size blocks") {
+  PortableHostCollection<SoAGenericBlocks> collection(cms::alpakatools::host(), 10);
+
+  auto sizes = collection.size();
+  REQUIRE(sizes[0] == 10);
+  REQUIRE(sizes[1] == 10);
+}
