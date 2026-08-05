@@ -219,13 +219,6 @@ void TracksterLinkingbySuperClusteringDNN::linkTracksters(
 
   static const std::vector<std::string> kInputNames = {"input"};
 
-  // std::array<TICLLayerTile, 2> tracksterTilesBothEndcaps_pt;
-  // for (unsigned int i_pt = 0; i_pt < tracksterCount; ++i_pt) {
-  //   auto const& ts = inputTracksters[trackstersIndicesPt[i_pt]];
-  //   tracksterTilesBothEndcaps_pt[ts.barycenter().eta() > 0.f].fill(
-  //       ts.barycenter().eta(), ts.barycenter().phi(), i_pt);
-  // }
-
   std::vector<bool> tracksterMask(tracksterCount, false);
   std::vector<bool> usedAsCandidate(tracksterCount, false);
   std::vector<int> seedToOutputIndex(tracksterCount, -1);
