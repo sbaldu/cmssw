@@ -41,8 +41,14 @@ namespace ticl {
 
     ALPAKA_FN_ACC auto phiBin(float phi) const {
       const auto normPhi = normalizedPhi(phi);
-      const auto r = T::nPhiBins * M_1_PI * 0.5f;
-      const auto phiBin = static_cast<int>((normPhi + M_PI) * r);
+      const float r = T::nPhiBins * M_1_PI * 0.5f;
+      auto phiBin = static_cast<int>((normPhi + M_PI) * r);
+      // (normPhi + pi) is mathematically in [0, 2*pi), but floating-point rounding can push
+      // phi values extremely close to the upper wrap boundary to nPhiBins. Wrap back into the
+      // valid range instead of relying on the assert in KernelTilesAssociations, which is
+      // compiled out in release builds.
+      if (phiBin >= T::nPhiBins) [[unlikely]]
+        phiBin -= T::nPhiBins;
 
       return phiBin;
     }
@@ -97,7 +103,9 @@ namespace ticl {
                                   std::span<const float> phis,
                                   uint32_t* associations) const {
       for (auto idx : alpaka::uniformElements(acc, etas.size())) {
-        associations[idx] = tiles.globalBin(etas[idx], phis[idx]);
+        const auto bin = tiles.globalBin(etas[idx], phis[idx]);
+        assert(bin >= 0 and bin < T::nBins);
+        associations[idx] = bin;
       }
     }
   };
