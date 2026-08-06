@@ -40,7 +40,7 @@ void PatternRecognitionbyRecovery<TILES>::makeTracksters(
   // Clear the result vector
   result.clear();
 
-  result.reserve(input.layerClusters.size() / 16);  // Heuristic
+  result.reserve(input.layerClusters.size()[0] / 16);  // Heuristic
 
   // Iterate over all layer clusters
   auto clusters = input.layerClusters.view();

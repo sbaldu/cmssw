@@ -133,19 +133,12 @@ namespace ticl {
         }
       }
 
-<<<<<<< HEAD
       if (doRegression_ != 0 && onnxEnergySession_ != nullptr) {
         ortScratch.outputs.clear();
-=======
-      std::sort(clusterIndices.begin(), clusterIndices.end(), [&clusters, &trackster](const int& a, const int& b) {
-        return clusters.energy()[trackster.vertices(a)].energy() > clusters.energy()[trackster.vertices(b)].energy();
-      });
->>>>>>> 44e43591307 (Update legacy RecoHGCal plugin to use cluster SoA)
 
         onnxEnergySession_->runInto(
             inputNames_, ortScratch.inputs, ortScratch.input_shapes, output_en_, ortScratch.outputs, {}, n);
 
-<<<<<<< HEAD
         if (!ortScratch.outputs.empty() && !output_en_.empty()) {
           auto const& energy = ortScratch.outputs[0];
           for (int bi = 0; bi < n; ++bi) {
@@ -167,18 +160,6 @@ namespace ticl {
             ts.setProbabilities(probs);
             probs += ts.id_probabilities().size();
           }
-=======
-      // Fill input data with cluster information
-      for (const int& k : clusterIndices) {
-        int j = rhtools.getLayerWithOffset(clusters.indexes()[k].seedID()) - 1;
-        if (j < eidNLayers_ && seenClusters[j] < eidNClusters_) {
-          auto index = (i * eidNLayers_ + j) * eidNFeatures_ * eidNClusters_ + seenClusters[j] * eidNFeatures_;
-          input_Data_[0][index] =
-              static_cast<float>(clusters.energy()[k].energy() / static_cast<float>(trackster.vertex_multiplicity(k)));
-          input_Data_[0][index + 1] = static_cast<float>(std::abs(clusters.eta(k)));
-          input_Data_[0][index + 2] = static_cast<float>(clusters.phi(k));
-          seenClusters[j]++;
->>>>>>> 44e43591307 (Update legacy RecoHGCal plugin to use cluster SoA)
         }
       }
     }

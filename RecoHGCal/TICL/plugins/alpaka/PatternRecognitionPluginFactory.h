@@ -6,7 +6,6 @@
 #include "FWCore/Framework/interface/ConsumesCollector.h"
 #include "RecoHGCal/TICL/interface/alpaka/PatternRecognitionAlgoBase.h"
 #include "RecoHGCal/TICL/interface/alpaka/PatternRecognitionAlgoBase.h"
-#include "RecoHGCal/TICL/interface/GlobalCache.h"
 
   using PatternRecognitionFactoryAlpaka =
       ::edmplugin::PluginFactory<ALPAKA_ACCELERATOR_NAMESPACE::PatternRecognitionAlgoBase*(const edm::ParameterSet&)>;

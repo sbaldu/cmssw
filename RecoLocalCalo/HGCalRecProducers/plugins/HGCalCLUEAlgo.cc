@@ -106,14 +106,14 @@ void HGCalCLUEAlgoT<T, STRATEGY>::makeClusters() {
       // calculation
       float delta_c;
       if (l % maxlayer_ < lastLayerEE_)
-        delta_c = vecDeltas_[0];
+        delta_c = vecDeltasC_[0];
       else if (l % maxlayer_ < (firstLayerBH_ - 1))
-        delta_c = vecDeltas_[1];
+        delta_c = vecDeltasC_[1];
       else
-        delta_c = vecDeltas_[2];
+        delta_c = vecDeltasC_[2];
       delta = delta_c;
     } else {
-      float delta_r = vecDeltas_[3];
+      float delta_r = vecDeltasC_[3];
       delta = delta_r;
     }
 
