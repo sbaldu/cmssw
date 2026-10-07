@@ -7,7 +7,7 @@ HGCalTriggerCellCalibration::HGCalTriggerCellCalibration(const edm::ParameterSet
       fCperMIP_(conf.getParameter<std::vector<double>>("fCperMIP")),
       chargeCollectionEfficiency_(conf.getParameter<edm::ParameterSet>("chargeCollectionEfficiency")
                                       .getParameter<std::vector<double>>("values")),
-      thicknessCorrection_(conf.getParameter<std::vector<double>>("thicknessCorrection")),
+      thicknessCorrection_(conf.getParameter<std::vector<float>>("thicknessCorrection")),
       dEdX_weights_(conf.getParameter<std::vector<float>>("dEdXweights")) {
   for (const auto& fCperMIP : fCperMIP_) {
     if (fCperMIP <= 0) {

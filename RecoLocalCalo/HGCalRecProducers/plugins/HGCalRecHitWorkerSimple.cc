@@ -72,7 +72,7 @@ HGCalRecHitWorkerSimple::HGCalRecHitWorkerSimple(const edm::ParameterSet& ps, ed
 
   //This is for the index position in CE_H silicon thickness cases
   deltasi_index_regemfac_ = ps.getParameter<int>("deltasi_index_regemfac");
-  const auto& rcorrnose = ps.getParameter<std::vector<double> >("thicknessNoseCorrection");
+  const auto& rcorrnose = ps.getParameter<std::vector<float> >("thicknessNoseCorrection");
   rcorrNose_.clear();
   rcorrNose_.push_back(1.f);
   for (auto corr : rcorrnose) {
