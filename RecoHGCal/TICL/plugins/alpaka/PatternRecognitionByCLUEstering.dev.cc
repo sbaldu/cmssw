@@ -27,12 +27,6 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       auto d_clIndex = cms::alpakatools::make_device_buffer<int[]>(queue, n);
       auto dp_clIndex = const_cast<int *>(d_clIndex.data());
       clue::PointsDevice<3> d_points(queue, n, x, y, z, E, dp_clIndex);
-      // if (m_verbosity) {
-      //   for (int iLC = 0; iLC < n; ++iLC) {
-      //     std::cout << "( " << x[iLC] << ", " << y[iLC] << ", " << z[iLC] << ",
-      //     " << E[iLC] << " )" << std::endl;
-      //   }
-      // }
 
       clue::Clusterer<3> clusterer(queue, m_dc, m_rhoc, m_dm);
       std::array<float, 3> weights{{1.f, 1., 2.f}};
@@ -40,7 +34,6 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       // create hosts points and do the copy
       clue::PointsHost<3> h_points(queue, n);
       clue::copyToHost(queue, h_points, d_points);
-      // alpaka::wait(queue);
 
       const auto tsMap = clue::get_clusters(h_points);
       ticl::TracksterHost tracksters(cms::alpakatools::host(), tsMap.size());
@@ -50,24 +43,6 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         tracksters[i].vertex_multiplicity().resize(tracksters[i].vertices().size(), 1);
       }
 
-      // alpaka::memcpy(queue,
-      //                cms::alpakatools::make_host_view(h_points.view().coords()[0], n),
-      //                cms::alpakatools::make_device_view(alpaka::getDev(queue), x, n),
-      //                static_cast<uint32_t>(n));
-      // alpaka::memcpy(queue,
-      //                cms::alpakatools::make_host_view(h_points.view().coords()[1], n),
-      //                cms::alpakatools::make_device_view(alpaka::getDev(queue), y, n),
-      //                static_cast<uint32_t>(n));
-      // alpaka::memcpy(queue,
-      //                cms::alpakatools::make_host_view(h_points.view().coords()[2], n),
-      //                cms::alpakatools::make_device_view(alpaka::getDev(queue), z, n),
-      //                static_cast<uint32_t>(n));
-      // alpaka::memcpy(queue,
-      //                cms::alpakatools::make_host_view(h_points.weights(), n),
-      //                cms::alpakatools::make_device_view(alpaka::getDev(queue), E, n),
-      //                static_cast<uint32_t>(n));
-      // alpaka::wait(queue);
-
       // compute trackster properties
       // TODO: merge with previous loop
       bool energyWeight = true;
@@ -75,17 +50,6 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       auto yHost = h_points.coords(1).data();
       auto zHost = h_points.coords(2).data();
       auto EHost = h_points.weights();
-      // if (m_verbosity) {
-      //   std::cout << "Event Number of LCs " << n << std::endl;
-      //   for (const auto& [Z, indices] : map) {
-      //     std::cout << "z = " << Z << " -> Clusters : ";
-      //     for (auto i : indices)
-      //       std::cout << "\t( " << xHost[i] << ", " << yHost[i] << ", " <<
-      //       zHost[i] << ", " << EHost[i] << ")"
-      //                 << std::endl;
-      //     std::cout << std::endl;
-      //   }
-      // }
       for (auto tid = 0u; tracksters.metadata.size()[0]; ++tid) {
         size_t N = trackster.vertices().size();
         if (N == 0)
@@ -129,7 +93,6 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
           // layerClusterEnergies.push_back(EHost[lcIdx]);
         }
-        // float raw_energy = trackster.raw_energy();
         auto inv_raw_energy = 1.f / raw_energy;
         if (energyWeight)
           barycenter *= inv_raw_energy;
@@ -137,16 +100,6 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
         trackster.calculateRawPt();
         trackster.calculateRawEmPt();
-        // if (m_verbosity) {
-        //   std::cout << "  LC in TS: ";
-        //   for (const auto& lc : trackster.vertices())
-        //     std::cout << lc << " ";
-        //   std::cout << std::endl;
-        //   std::cout << "  energy raw: " << trackster.raw_energy() << std::endl;
-        //   std::cout << "  barycenter: " << trackster.barycenter().x() << ", "
-        //   << trackster.barycenter().y() << ", "
-        //             << trackster.barycenter().z() << std::endl;
-        // }
       }
     }
   }
