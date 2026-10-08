@@ -22,7 +22,7 @@ namespace cms::alpakatools {
   // type deduction helpers
   namespace detail {
 
-    template <typename TDev, typename T, typename = std::enable_if_t<alpaka::concepts::Device<TDev>>>
+    template <alpaka::concepts::Device TDev, typename T>
     struct buffer_type {
       using type = alpaka::Buf<TDev, T, Dim0D, Idx>;
     };
@@ -37,7 +37,7 @@ namespace cms::alpakatools {
       using type = alpaka::Buf<TDev, T, Dim1D, Idx>;
     };
 
-    template <typename TDev, typename T, typename = std::enable_if_t<alpaka::concepts::Device<TDev>>>
+    template <alpaka::concepts::Device TDev, typename T>
     struct view_type {
       using type = alpaka::ViewPlainPtr<TDev, T, Dim0D, Idx>;
     };
@@ -187,10 +187,10 @@ namespace cms::alpakatools {
 
   // scalar and 1-dimensional device buffers
 
-  template <typename TDev, typename T, typename = std::enable_if_t<alpaka::concepts::Device<TDev>>>
+  template <alpaka::concepts::Device TDev, typename T>
   using device_buffer = typename detail::buffer_type<TDev, T>::type;
 
-  template <typename TDev, typename T, typename = std::enable_if_t<alpaka::concepts::Device<TDev>>>
+  template <alpaka::concepts::Device TDev, typename T>
   using const_device_buffer = alpaka::ViewConst<device_buffer<TDev, T>>;
 
   // non-cached, scalar and 1-dimensional device buffers
@@ -267,7 +267,7 @@ namespace cms::alpakatools {
 
   // scalar and 1-dimensional device views
 
-  template <typename TDev, typename T, typename = std::enable_if_t<alpaka::concepts::Device<TDev>>>
+  template <alpaka::concepts::Device TDev, typename T>
   using device_view = typename detail::view_type<TDev, T>::type;
 
   template <typename T, typename TDev>

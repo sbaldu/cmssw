@@ -13,7 +13,7 @@
 #include "HeterogeneousCore/AlpakaInterface/interface/memory.h"
 
 // generic object in device memory
-template <typename TDev, typename T, typename = std::enable_if_t<alpaka::concepts::Device<TDev>>>
+template <alpaka::concepts::Device TDev, typename T>
 class PortableDeviceObject {
   static_assert(not std::is_same_v<TDev, alpaka_common::DevHost>,
                 "Use PortableHostObject<T> instead of PortableDeviceObject<T, DevHost>");
@@ -33,7 +33,7 @@ public:
     assert(reinterpret_cast<uintptr_t>(buffer_->data()) % alignof(Product) == 0);
   }
 
-  template <typename TQueue, typename = std::enable_if_t<alpaka::concepts::Queue<TQueue>>>
+  template <alpaka::concepts::Queue TQueue>
   PortableDeviceObject(TQueue const& queue)
       // allocate global device memory with queue-ordered semantic
       : buffer_{cms::alpakatools::make_device_buffer<Product>(queue)} {
@@ -72,7 +72,7 @@ public:
   ConstBuffer const_buffer() const { return *buffer_; }
 
   // erases the data in the Buffer by writing zeros (bytes containing '\0') to it
-  template <typename TQueue, typename = std::enable_if_t<alpaka::concepts::Queue<TQueue>>>
+  template <alpaka::concepts::Queue TQueue>
   void zeroInitialise(TQueue&& queue) {
     alpaka::memset(std::forward<TQueue>(queue), *buffer_, 0x00);
   }

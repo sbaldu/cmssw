@@ -17,7 +17,7 @@
 #include "HeterogeneousCore/AlpakaInterface/interface/memory.h"
 
 // generic SoA-based product in device memory
-template <typename TDev, typename T, typename = std::enable_if_t<alpaka::concepts::Device<TDev>>>
+template <alpaka::concepts::Device TDev, typename T>
 class PortableDeviceCollection {
   static_assert(not std::is_same_v<TDev, alpaka_common::DevHost>,
                 "Use PortableHostCollection<T> instead of PortableDeviceCollection<T, DevHost>");

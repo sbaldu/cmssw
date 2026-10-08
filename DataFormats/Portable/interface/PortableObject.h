@@ -14,7 +14,7 @@
 namespace traits {
 
   // trait for a generic struct-based product
-  template <typename TDev, typename T, typename = std::enable_if_t<alpaka::concepts::Device<TDev>>>
+  template <alpaka::concepts::Device TDev, typename T>
   struct PortableObjectTrait {
     using ProductType = PortableDeviceObject<TDev, T>;
   };
@@ -28,7 +28,7 @@ namespace traits {
 }  // namespace traits
 
 // type alias for a generic struct-based product
-template <typename TDev, typename T, typename = std::enable_if_t<alpaka::concepts::Device<TDev>>>
+template <alpaka::concepts::Device TDev, typename T>
 using PortableObject = typename traits::PortableObjectTrait<TDev, T>::ProductType;
 
 // define how to copy PortableObject between host and device

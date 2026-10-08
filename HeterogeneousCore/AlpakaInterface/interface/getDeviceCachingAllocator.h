@@ -15,9 +15,7 @@ namespace cms::alpakatools {
 
   namespace detail {
 
-    template <typename TDev,
-              typename TQueue,
-              typename = std::enable_if_t<alpaka::concepts::Device<TDev> and alpaka::concepts::Queue<TQueue>>>
+    template <alpaka::concepts::Device TDev, alpaka::concepts::Queue TQueue>
     auto allocate_device_allocators(AllocatorConfig const& config, bool debug) {
       using Allocator = CachingAllocator<TDev, TQueue>;
       auto const& devices = cms::alpakatools::devices<alpaka::Platform<TDev>>();
@@ -67,9 +65,7 @@ namespace cms::alpakatools {
 
   }  // namespace detail
 
-  template <typename TDev,
-            typename TQueue,
-            typename = std::enable_if_t<alpaka::concepts::Device<TDev> and alpaka::concepts::Queue<TQueue>>>
+  template <alpaka::concepts::Device TDev, alpaka::concepts::Queue TQueue>
   inline CachingAllocator<TDev, TQueue>& getDeviceCachingAllocator(TDev const& device,
                                                                    AllocatorConfig const& config = AllocatorConfig{},
                                                                    bool debug = false) {

@@ -31,7 +31,7 @@ namespace cms::alpakatools {
    * would allow the source memory buffer to be used via another copy
    * during the asynchronous data copy to the device.
    */
-  template <typename TQueue, typename THostObject, typename = std::enable_if_t<alpaka::concepts::Queue<TQueue>>>
+  template <alpaka::concepts::Queue TQueue, typename THostObject>
   auto moveToDeviceAsync(TQueue& queue, THostObject hostObject) {
     static_assert(not(std::is_copy_constructible_v<THostObject> or std::is_copy_assignable_v<THostObject>),
                   "The data object to be moved to device must not be copyable.");
