@@ -24,7 +24,9 @@
   <use name="RecoLocalCalo/HGCalRecProducers"/>
   <use name="RecoParticleFlow/PFClusterProducer"/>
   <use name="RecoTICL/LayerClustering"/>
-  <use name="tbb"/>
+  <use name="alpaka"/>
+  <use name="cluestering"/>
+  <flags ALPAKA_BACKENDS="serial"/>
   <flags EDM_PLUGIN="1"/>
 </library>
 

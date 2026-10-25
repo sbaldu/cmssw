@@ -4,6 +4,7 @@
 #include "RecoLocalCalo/HGCalRecProducers/interface/HGCalClusteringAlgoBase.h"
 
 #include "FWCore/ParameterSet/interface/ConfigurationDescriptions.h"
+#include "FWCore/Utilities/interface/Exception.h"
 
 #include "DataFormats/DetId/interface/DetId.h"
 #include "DataFormats/ParticleFlowReco/interface/PFRecHit.h"
@@ -14,7 +15,6 @@
 
 #include "DataFormats/EgammaReco/interface/BasicCluster.h"
 #include "DataFormats/Math/interface/Point3D.h"
-#include "DataFormats/Math/interface/deltaPhi.h"
 
 #include "RecoTICL/LayerClustering/interface/HGCalLayerTiles.h"
 
@@ -26,7 +26,8 @@
 #include "CondFormats/HcalObjects/interface/HcalPFCuts.h"
 
 // C/C++ headers
-#include <set>
+#include <algorithm>
+#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -41,10 +42,12 @@ public:
             reco::CaloCluster::undefined),
         deltac_(ps.getParameter<double>("deltac")),
         kappa_(ps.getParameter<double>("kappa")),
-        fractionCutoff_(ps.getParameter<double>("fractionCutoff")),
-        maxLayerIndex_(ps.getParameter<int>("maxLayerIndex")),
-        outlierDeltaFactor_(ps.getParameter<double>("outlierDeltaFactor")),
-        doSharing_(ps.getParameter<bool>("doSharing")) {}
+        maxLayerIndex_(ps.getParameter<int>("maxLayerIndex")) {
+    // CLUEstering does not implement the sharing of rechits between clusters
+    if (ps.getParameter<bool>("doSharing")) {
+      throw cms::Exception("Configuration") << "BarrelCLUEAlgo: doSharing is not supported";
+    }
+  }
   ~BarrelCLUEAlgoT() override {}
 
   void getEventSetupPerAlgorithm(const edm::EventSetup& es) override;
@@ -63,27 +66,21 @@ public:
 
   void reset() override {
     clusters_v_.clear();
-    clusters_v_.shrink_to_fit();
-    for (auto& cl : numberOfClustersPerLayer_) {
-      cl = 0;
-    }
-
-    for (auto& cells : cells_) {
-      cells.clear();
-      cells.shrink_to_fit();
-    }
-    density_.clear();
+    cells_.clear();
+    std::fill(layerSizes_.begin(), layerSizes_.end(), 0u);
+    numberOfClusters_ = 0;
   }
-
-  Density getDensity() override;
 
   void computeThreshold();
 
   static void fillPSetDescription(edm::ParameterSetDescription& iDesc) {
+    // Unused: as in the original implementation, rechits below the density threshold are only
+    // attached to a higher-density rechit within deltac
     iDesc.add<double>("outlierDeltaFactor", 2.);
     iDesc.add<double>("kappa", 1.34);
     iDesc.add<int>("maxLayerIndex", 0);
     iDesc.add<double>("deltac", 0.0175);
+    // Unused, only relevant for the sharing
     iDesc.add<double>("fractionCutoff", 0.);
     iDesc.add<bool>("doSharing", false);
   }
@@ -101,29 +98,30 @@ private:
   // The two parameters used to identify clusters
   double deltac_;
   double kappa_;
-  double fractionCutoff_;
   int maxLayerIndex_;
-  float outlierDeltaFactor_;
-  bool doSharing_;
-  Density density_;
-  // For keeping the density per hit
 
-  struct BarrelCellsOnLayer {
-    std::vector<DetId> detid;
+  // The rechits of all the layers, stored contiguously layer after layer: CLUEstering
+  // clusters each layer separately, given the number of rechits on each of them
+  struct BarrelCells {
+    std::vector<uint32_t> detid;
     std::vector<float> eta;
     std::vector<float> phi;
     std::vector<float> r;
-
     std::vector<float> weight;
-    std::vector<float> rho;
-
-    std::vector<float> delta;
-    std::vector<int> nearestHigher;
-    std::vector<std::vector<int>> clusterIndex;
     std::vector<float> sigmaNoise;
-    std::vector<std::vector<int>> followers;
+    std::vector<int> clusterIndex;
     std::vector<bool> isSeed;
-    std::vector<int> seedToCellIndex;
+
+    void resize(std::size_t size) {
+      detid.resize(size);
+      eta.resize(size);
+      phi.resize(size);
+      r.resize(size);
+      weight.resize(size);
+      sigmaNoise.resize(size);
+      clusterIndex.resize(size);
+      isSeed.resize(size);
+    }
 
     void clear() {
       detid.clear();
@@ -131,54 +129,19 @@ private:
       phi.clear();
       r.clear();
       weight.clear();
-      rho.clear();
-      delta.clear();
-      nearestHigher.clear();
-      clusterIndex.clear();
       sigmaNoise.clear();
-      followers.clear();
+      clusterIndex.clear();
       isSeed.clear();
-      seedToCellIndex.clear();
-    }
-
-    void shrink_to_fit() {
-      detid.shrink_to_fit();
-      r.shrink_to_fit();
-      eta.shrink_to_fit();
-      phi.shrink_to_fit();
-      weight.shrink_to_fit();
-      rho.shrink_to_fit();
-      delta.shrink_to_fit();
-      nearestHigher.shrink_to_fit();
-      clusterIndex.shrink_to_fit();
-      sigmaNoise.shrink_to_fit();
-      followers.shrink_to_fit();
-      isSeed.shrink_to_fit();
-      seedToCellIndex.clear();
     }
   };
 
-  std::vector<BarrelCellsOnLayer> cells_;
+  BarrelCells cells_;
+  std::vector<uint32_t> layerSizes_;
+  unsigned int numberOfClusters_ = 0;
 
-  std::vector<int> numberOfClustersPerLayer_;
-
-  inline float distance2(int cell1, int cell2, int layerId) const {  // distance squared
-    const float dphi = reco::deltaPhi(cells_[layerId].phi[cell1], cells_[layerId].phi[cell2]);
-    const float deta = cells_[layerId].eta[cell1] - cells_[layerId].eta[cell2];
-    return (deta * deta + dphi * dphi);
-  }
-
-  inline float distance(int cell1, int cell2, int layerId) const {  // 2-d distance on the layer (x-y)
-    return std::sqrt(distance2(cell1, cell2, layerId));
-  }
-
-  void prepareDataStructures(const unsigned int layerId);
-  void calculateLocalDensity(const TILE& lt, const unsigned int layerId, float delta_c);
-  void calculateDistanceToHigher(const TILE& lt, const unsigned int layerId, float delta_c);
-  int findAndAssignClusters(const unsigned int layerId, float delta_c);
-  void passSharedClusterIndex(const TILE& lt, const unsigned int layerId, float delta_c);
-  math::XYZPoint calculatePosition(const std::vector<std::pair<int, float>>& v, const unsigned int layerId) const;
-  void setDensity(const unsigned int layerId);
+  static unsigned int layerIndex(DetId detid);
+  void prepareDataStructures();
+  math::XYZPoint calculatePosition(const std::vector<int>& cellsInCluster) const;
 };
 
 // explicit template instantiation
