@@ -1,10 +1,12 @@
 #include <cmath>
 #include <cstdint>
+#include <functional>
 #include <span>
 
 #include <alpaka/alpaka.hpp>
 
 #include "HeterogeneousCore/AlpakaInterface/interface/config.h"
+#include "HeterogeneousCore/AlpakaInterface/interface/getDeviceCachingAllocator.h"
 #include "HeterogeneousCore/AlpakaInterface/interface/memory.h"
 #include "HeterogeneousCore/AlpakaInterface/interface/workdivision.h"
 
@@ -36,6 +38,18 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       }
     };
 
+    class AllocatorWrapper {
+      using Allocator = cms::alpakatools::CachingAllocator<Device, Queue>;
+      std::reference_wrapper<Allocator> m_allocator;
+      Queue m_queue;
+
+    public:
+      AllocatorWrapper(Allocator& allocator, Queue& queue) : m_allocator{allocator}, m_queue{queue} {}
+
+      void* allocate(std::size_t bytes, std::size_t /* align */) { return m_allocator.get().allocate(bytes, m_queue); }
+      void deallocate(void* ptr) { m_allocator.get().free(ptr); }
+    };
+
   }  // namespace
 
   void HGCalCLUEsteringAlgoWrapper::run(Queue& queue,
@@ -53,16 +67,20 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       return;
     }
 
+    auto& allocator = getDeviceCachingAllocator<Device, Queue>(alpaka::getDev(queue));
+    auto allocator_wrapper = AllocatorWrapper(allocator, queue);
+
     clue::ConstPointsDevice<2, float> d_points(queue,
                                                static_cast<int32_t>(nRecHits),
                                                recHits.dim1().data(),
                                                recHits.dim2().data(),
                                                recHits.energy().data(),
-                                               recHitsClustering.clusterIndex().data());
+                                               recHitsClustering.clusterIndex().data(),
+                                               allocator_wrapper);
     d_points.set_density_uncertainty(recHits.sigmaNoise());
     d_points.set_tags(recHits.detid());
 
-    clue::Clusterer<2> algo(queue, dc, kappa, dc * outlierDeltaFactor);
+    clue::Clusterer<2, float, AllocatorWrapper> algo(allocator_wrapper, dc, kappa, dc * outlierDeltaFactor);
     if (isScintillator) {
       // Scintillator (BH) cells cluster in (eta, phi)
       constexpr float kTwoPi = 2.f * static_cast<float>(M_PI);
